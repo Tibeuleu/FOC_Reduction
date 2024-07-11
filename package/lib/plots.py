@@ -326,7 +326,7 @@ def polarization_map(
     plt.rcdefaults()
     ratiox = max(int(stkI.shape[1]/(stkI.shape[0])),1)
     ratioy = max(int((stkI.shape[0])/stkI.shape[1]),1)
-    fig, ax = plt.subplots(figsize=(6*ratiox, 6*ratioy), layout="compressed", subplot_kw=dict(projection=wcs))
+    fig, ax = plt.subplots(figsize=(7*ratiox, 7*ratioy), layout="compressed", subplot_kw=dict(projection=wcs))
     ax.set(aspect="equal", fc="k", ylim=[-stkI.shape[0]*0.10,stkI.shape[0]*1.15])
     # fig.subplots_adjust(hspace=0, wspace=0, left=0.102, right=1.02)
 
@@ -449,8 +449,8 @@ def polarization_map(
         ax.transAxes,
         "E",
         "N",
-        length=-0.05,
-        fontsize=0.02,
+        length=-0.07,
+        fontsize=0.03,
         loc=1,
         aspect_ratio=-(stkI.shape[1]/(stkI.shape[0]*1.25)),
         sep_y=0.01,
@@ -670,7 +670,7 @@ class align_maps(object):
                 length=-0.08,
                 fontsize=0.03,
                 loc=1,
-                aspect_ratio=-(self.map_data.shape[1]/self.map_data.shape[0]),
+                aspect_ratio=-(self.map_ax.get_xbound()[1]-self.map_ax.get_xbound()[0])/(self.map_ax.get_ybound()[1]-self.map_ax.get_ybound()[0]),
                 sep_y=0.01,
                 sep_x=0.01,
                 angle=-self.map_header["orientat"],
@@ -722,13 +722,13 @@ class align_maps(object):
             )
         if "ORIENTAT" in list(self.other_header.keys()):
             north_dir2 = AnchoredDirectionArrows(
-                self.map_ax.transAxes,
+                self.other_ax.transAxes,
                 "E",
                 "N",
                 length=-0.08,
                 fontsize=0.03,
                 loc=1,
-                aspect_ratio=-(self.other_data.shape[1]/self.other_data.shape[0]),
+                aspect_ratio=-(self.other_ax.get_xbound()[1]-self.other_ax.get_xbound()[0])/(self.other_ax.get_ybound()[1]-self.other_ax.get_ybound()[0]),
                 sep_y=0.01,
                 sep_x=0.01,
                 angle=-self.other_header["orientat"],
@@ -1272,7 +1272,9 @@ class overplot_pol(align_maps):
         pol[SNRi < SNRi_cut] = np.nan
 
         plt.rcParams.update({"font.size": 16})
-        self.fig_overplot, self.ax_overplot = plt.subplots(figsize=(11, 10), subplot_kw=dict(projection=self.other_wcs))
+        ratiox = max(int(stkI.shape[1]/stkI.shape[0]),1)
+        ratioy = max(int(stkI.shape[0]/stkI.shape[1]),1)
+        self.fig_overplot, self.ax_overplot = plt.subplots(figsize=(10*ratiox, 10*ratioy), subplot_kw=dict(projection=self.other_wcs))
         self.fig_overplot.subplots_adjust(hspace=0, wspace=0, bottom=0.1, left=0.1, top=0.80, right=1.02)
 
         self.ax_overplot.set_xlabel(label="Right Ascension (J2000)")
@@ -1327,11 +1329,12 @@ class overplot_pol(align_maps):
         )
 
         # Display full size polarization vectors
+        px_scale = self.wcs_UV.wcs.get_cdelt()[0]/self.other_wcs.wcs.get_cdelt()[0]
         if scale_vec is None:
-            self.scale_vec = 2.0
+            self.scale_vec = 2.0*px_scale
             pol[np.isfinite(pol)] = 1.0 / 2.0
         else:
-            self.scale_vec = scale_vec
+            self.scale_vec = scale_vec*px_scale
         step_vec = 1
         self.X, self.Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
         self.U, self.V = pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0)
@@ -1348,8 +1351,8 @@ class overplot_pol(align_maps):
             headwidth=0.0,
             headlength=0.0,
             headaxislength=0.0,
-            width=0.5,
-            linewidth=0.75,
+            width=0.5*px_scale,
+            linewidth=0.3*px_scale,
             color="white",
             edgecolor="black",
             transform=self.ax_overplot.get_transform(self.wcs_UV),
@@ -1388,7 +1391,7 @@ class overplot_pol(align_maps):
             length=-0.08,
             fontsize=0.03,
             loc=1,
-            aspect_ratio=-(stkI.shape[1]/stkI.shape[0]),
+            aspect_ratio=-(self.ax_overplot.get_xbound()[1]-self.ax_overplot.get_xbound()[0])/(self.ax_overplot.get_ybound()[1]-self.ax_overplot.get_ybound()[0]),
             sep_y=0.01,
             sep_x=0.01,
             angle=-self.Stokes_UV[0].header["orientat"],

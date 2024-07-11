@@ -36,7 +36,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Background estimation
     error_sub_type = "freedman-diaconis"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
-    subtract_error = 1.0
+    subtract_error = 2.0
     display_bkg = False
 
     # Data binning
@@ -54,8 +54,8 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Smoothing
     smoothing_function = "combine"  # gaussian_after, weighted_gaussian_after, gaussian, weighted_gaussian or combine
-    smoothing_FWHM = 2.0    # If None, no smoothing is done
-    smoothing_scale = "px"  # pixel or arcsec
+    smoothing_FWHM = 1.50       # If None, no smoothing is done
+    smoothing_scale = "px"      # pixel or arcsec
 
     # Rotation
     rotate_North = True
@@ -401,7 +401,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
             deepcopy(Stokes_hdul), data_mask, SNRp_cut=SNRp_cut, SNRi_cut=SNRi_cut, savename=figname, plots_folder=plots_folder, display="integrate"
         )
     elif pxscale.lower() not in ["full", "integrate"]:
-        proj_plots.pol_map(Stokes_hdul, SNRp_cut=SNRp_cut, SNRi_cut=SNRi_cut, flux_lim=flux_lim)
+        proj_plots.pol_map(Stokes_hdul, SNRp_cut=SNRp_cut, SNRi_cut=SNRi_cut, step_vec=step_vec, scale_vec=scale_vec, flux_lim=flux_lim)
 
     return outfiles
 
