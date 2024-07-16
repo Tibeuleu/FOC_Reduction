@@ -217,9 +217,9 @@ def bin_ndarray(ndarray, new_shape, operation="sum"):
             elif operation.lower() in ["mean", "average", "avg"]:
                 ndarray = ndarray.mean(-1 * (i + 1))
     else:
-        row_comp = np.mat(get_row_compressor(ndarray.shape[0], new_shape[0], operation))
-        col_comp = np.mat(get_column_compressor(ndarray.shape[1], new_shape[1], operation))
-        ndarray = np.array(row_comp * np.mat(ndarray) * col_comp)
+        row_comp = np.asmatrix(get_row_compressor(ndarray.shape[0], new_shape[0], operation))
+        col_comp = np.asmatrix(get_column_compressor(ndarray.shape[1], new_shape[1], operation))
+        ndarray = np.array(row_comp * np.asmatrix(ndarray) * col_comp)
 
     return ndarray
 
