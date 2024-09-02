@@ -61,9 +61,9 @@ from mpl_toolkits.axes_grid1.anchored_artists import (
 from scipy.ndimage import zoom as sc_zoom
 
 try:
-    from .utils import princ_angle, rot2D, sci_not
+    from .utils import PCconf, princ_angle, rot2D, sci_not
 except ImportError:
-    from utils import princ_angle, rot2D, sci_not
+    from utils import PCconf, princ_angle, rot2D, sci_not
 
 
 def plot_obs(data_array, headers, rectangle=None, savename=None, plots_folder="", **kwargs):
@@ -99,7 +99,7 @@ def plot_obs(data_array, headers, rectangle=None, savename=None, plots_folder=""
     plt.rcParams.update({"font.size": 10})
     nb_obs = np.max([np.sum([head["filtnam1"] == curr_pol for head in headers]) for curr_pol in ["POL0", "POL60", "POL120"]])
     shape = np.array((3, nb_obs))
-    fig, ax = plt.subplots(shape[0], shape[1], figsize=(3 * shape[1], 3 * shape[0]), dpi=200, layout="constrained", sharex=True, sharey=True)
+    fig, ax = plt.subplots(shape[0], shape[1], figsize=(3 * shape[1], 3 * shape[0]), layout="constrained", sharex=True, sharey=True)
     r_pol = dict(pol0=0, pol60=1, pol120=2)
     c_pol = dict(pol0=0, pol60=0, pol120=0)
     for i, (data, head) in enumerate(zip(data_array, headers)):
@@ -148,7 +148,7 @@ def plot_obs(data_array, headers, rectangle=None, savename=None, plots_folder=""
         # fig.suptitle(savename)
         if savename[-4:] not in [".png", ".jpg", ".pdf"]:
             savename += ".pdf"
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight")
+        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
     plt.show()
     return 0
 
@@ -183,9 +183,9 @@ def plot_Stokes(Stokes, savename=None, plots_folder=""):
 
     # Plot figure
     plt.rcParams.update({"font.size": 14})
-    ratiox = max(int(stkI.shape[1]/stkI.shape[0]),1)
-    ratioy = max(int(stkI.shape[0]/stkI.shape[1]),1)
-    fig, (axI, axQ, axU) = plt.subplots(ncols=3, figsize=(15*ratiox, 6*ratioy), subplot_kw=dict(projection=wcs))
+    ratiox = max(int(stkI.shape[1] / stkI.shape[0]), 1)
+    ratioy = max(int(stkI.shape[0] / stkI.shape[1]), 1)
+    fig, (axI, axQ, axU) = plt.subplots(ncols=3, figsize=(15 * ratiox, 6 * ratioy), subplot_kw=dict(projection=wcs))
     fig.subplots_adjust(hspace=0, wspace=0.50, bottom=0.01, top=0.99, left=0.07, right=0.97)
     fig.suptitle("I, Q, U Stokes parameters")
 
@@ -207,7 +207,7 @@ def plot_Stokes(Stokes, savename=None, plots_folder=""):
             savename += "_IQU.pdf"
         else:
             savename = savename[:-4] + "_IQU" + savename[-4:]
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight")
+        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
     plt.show()
     return 0
 
@@ -324,10 +324,10 @@ def polarization_map(
     # Plot the map
     plt.rcParams.update({"font.size": 14})
     plt.rcdefaults()
-    ratiox = max(int(stkI.shape[1]/(stkI.shape[0])),1)
-    ratioy = max(int((stkI.shape[0])/stkI.shape[1]),1)
-    fig, ax = plt.subplots(figsize=(7*ratiox, 7*ratioy), layout="compressed", subplot_kw=dict(projection=wcs))
-    ax.set(aspect="equal", fc="k", ylim=[-stkI.shape[0]*0.10,stkI.shape[0]*1.15])
+    ratiox = max(int(stkI.shape[1] / (stkI.shape[0])), 1)
+    ratioy = max(int((stkI.shape[0]) / stkI.shape[1]), 1)
+    fig, ax = plt.subplots(figsize=(7 * ratiox, 7 * ratioy), layout="compressed", subplot_kw=dict(projection=wcs))
+    ax.set(aspect="equal", fc="k", ylim=[-stkI.shape[0] * 0.10, stkI.shape[0] * 1.15])
     # fig.subplots_adjust(hspace=0, wspace=0, left=0.102, right=1.02)
 
     # ax.coords.grid(True, color='white', ls='dotted', alpha=0.5)
@@ -452,7 +452,7 @@ def polarization_map(
         length=-0.07,
         fontsize=0.03,
         loc=1,
-        aspect_ratio=-(stkI.shape[1]/(stkI.shape[0]*1.25)),
+        aspect_ratio=-(stkI.shape[1] / (stkI.shape[0] * 1.25)),
         sep_y=0.01,
         sep_x=0.01,
         back_length=0.0,
@@ -534,7 +534,7 @@ def polarization_map(
     if savename is not None:
         if savename[-4:] not in [".png", ".jpg", ".pdf"]:
             savename += ".pdf"
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=200)
+        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
 
     plt.show()
     return fig, ax
@@ -670,7 +670,7 @@ class align_maps(object):
                 length=-0.08,
                 fontsize=0.03,
                 loc=1,
-                aspect_ratio=-(self.map_ax.get_xbound()[1]-self.map_ax.get_xbound()[0])/(self.map_ax.get_ybound()[1]-self.map_ax.get_ybound()[0]),
+                aspect_ratio=-(self.map_ax.get_xbound()[1] - self.map_ax.get_xbound()[0]) / (self.map_ax.get_ybound()[1] - self.map_ax.get_ybound()[0]),
                 sep_y=0.01,
                 sep_x=0.01,
                 angle=-self.map_header["orientat"],
@@ -728,7 +728,7 @@ class align_maps(object):
                 length=-0.08,
                 fontsize=0.03,
                 loc=1,
-                aspect_ratio=-(self.other_ax.get_xbound()[1]-self.other_ax.get_xbound()[0])/(self.other_ax.get_ybound()[1]-self.other_ax.get_ybound()[0]),
+                aspect_ratio=-(self.other_ax.get_xbound()[1] - self.other_ax.get_xbound()[0]) / (self.other_ax.get_ybound()[1] - self.other_ax.get_ybound()[0]),
                 sep_y=0.01,
                 sep_x=0.01,
                 angle=-self.other_header["orientat"],
@@ -992,7 +992,7 @@ class overplot_radio(align_maps):
             length=-0.08,
             fontsize=0.03,
             loc=1,
-            aspect_ratio=-(stkI.shape[1]/stkI.shape[0]),
+            aspect_ratio=-(stkI.shape[1] / stkI.shape[0]),
             sep_y=0.01,
             sep_x=0.01,
             angle=-self.Stokes_UV[0].header["orientat"],
@@ -1033,7 +1033,7 @@ class overplot_radio(align_maps):
         if savename is not None:
             if savename[-4:] not in [".png", ".jpg", ".pdf"]:
                 savename += ".pdf"
-            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=200)
+            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None")
 
         self.fig_overplot.canvas.draw()
 
@@ -1194,7 +1194,7 @@ class overplot_chandra(align_maps):
             length=-0.08,
             fontsize=0.03,
             loc=1,
-            aspect_ratio=-(stkI.shape[1]/stkI.shape[0]),
+            aspect_ratio=-(stkI.shape[1] / stkI.shape[0]),
             sep_y=0.01,
             sep_x=0.01,
             angle=-self.Stokes_UV[0].header["orientat"],
@@ -1232,7 +1232,7 @@ class overplot_chandra(align_maps):
         if savename is not None:
             if savename[-4:] not in [".png", ".jpg", ".pdf"]:
                 savename += ".pdf"
-            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=200)
+            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None")
 
         self.fig_overplot.canvas.draw()
 
@@ -1272,9 +1272,10 @@ class overplot_pol(align_maps):
         pol[SNRi < SNRi_cut] = np.nan
 
         plt.rcParams.update({"font.size": 16})
-        ratiox = max(int(stkI.shape[1]/stkI.shape[0]),1)
-        ratioy = max(int(stkI.shape[0]/stkI.shape[1]),1)
-        self.fig_overplot, self.ax_overplot = plt.subplots(figsize=(10*ratiox, 10*ratioy), subplot_kw=dict(projection=self.other_wcs))
+        ratiox = max(int(stkI.shape[1] / stkI.shape[0]), 1)
+        ratioy = max(int(stkI.shape[0] / stkI.shape[1]), 1)
+        px_scale = self.wcs_UV.wcs.get_cdelt()[0] / self.other_wcs.wcs.get_cdelt()[0]
+        self.fig_overplot, self.ax_overplot = plt.subplots(figsize=(10 * ratiox, 10 * ratioy), subplot_kw=dict(projection=self.other_wcs))
         self.fig_overplot.subplots_adjust(hspace=0, wspace=0, bottom=0.1, left=0.1, top=0.80, right=1.02)
 
         self.ax_overplot.set_xlabel(label="Right Ascension (J2000)")
@@ -1288,7 +1289,12 @@ class overplot_pol(align_maps):
 
         # Display "other" intensity map
         vmin, vmax = other_data[other_data > 0.0].max() / 1e3 * self.other_convert, other_data[other_data > 0.0].max() * self.other_convert
-        for key, value in [["cmap", [["cmap", "inferno"]]], ["norm", [["vmin", vmin], ["vmax", vmax]]]]:
+        for key, value in [
+            ["cmap", [["cmap", "inferno"]]],
+            ["norm", [["vmin", vmin], ["vmax", vmax]]],
+            ["width", [["width", 0.5 * px_scale]]],
+            ["linewidth", [["linewidth", 0.3 * px_scale]]],
+        ]:
             try:
                 _ = kwargs[key]
             except KeyError:
@@ -1323,18 +1329,19 @@ class overplot_pol(align_maps):
         else:
             self.ax_overplot.set_facecolor("white")
             font_color = "black"
-        self.im = self.ax_overplot.imshow(other_data * self.other_convert, alpha=1.0, label="{0:s} observation".format(self.other_observer), **kwargs)
+        self.im = self.ax_overplot.imshow(
+            other_data * self.other_convert, alpha=1.0, label="{0:s} observation".format(self.other_observer), cmap=kwargs["cmap"], norm=kwargs["norm"]
+        )
         self.cbar = self.fig_overplot.colorbar(
             self.im, ax=self.ax_overplot, aspect=80, shrink=0.75, pad=0.025, label=r"$F_{{\lambda}}$ [{0:s}]".format(self.other_unit)
         )
 
         # Display full size polarization vectors
-        px_scale = self.wcs_UV.wcs.get_cdelt()[0]/self.other_wcs.wcs.get_cdelt()[0]
         if scale_vec is None:
-            self.scale_vec = 2.0*px_scale
+            self.scale_vec = 2.0 * px_scale
             pol[np.isfinite(pol)] = 1.0 / 2.0
         else:
-            self.scale_vec = scale_vec*px_scale
+            self.scale_vec = scale_vec * px_scale
         step_vec = 1
         self.X, self.Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
         self.U, self.V = pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0)
@@ -1345,14 +1352,14 @@ class overplot_pol(align_maps):
             self.V[::step_vec, ::step_vec],
             units="xy",
             angles="uv",
-            scale=1. / self.scale_vec,
+            scale=1.0 / self.scale_vec,
             scale_units="xy",
             pivot="mid",
             headwidth=0.0,
             headlength=0.0,
             headaxislength=0.0,
-            width=0.5*px_scale,
-            linewidth=0.3*px_scale,
+            width=kwargs["width"],
+            linewidth=kwargs["linewidth"],
             color="white",
             edgecolor="black",
             transform=self.ax_overplot.get_transform(self.wcs_UV),
@@ -1391,7 +1398,8 @@ class overplot_pol(align_maps):
             length=-0.08,
             fontsize=0.03,
             loc=1,
-            aspect_ratio=-(self.ax_overplot.get_xbound()[1]-self.ax_overplot.get_xbound()[0])/(self.ax_overplot.get_ybound()[1]-self.ax_overplot.get_ybound()[0]),
+            aspect_ratio=-(self.ax_overplot.get_xbound()[1] - self.ax_overplot.get_xbound()[0])
+            / (self.ax_overplot.get_ybound()[1] - self.ax_overplot.get_ybound()[0]),
             sep_y=0.01,
             sep_x=0.01,
             angle=-self.Stokes_UV[0].header["orientat"],
@@ -1437,7 +1445,7 @@ class overplot_pol(align_maps):
         if savename is not None:
             if savename[-4:] not in [".png", ".jpg", ".pdf"]:
                 savename += ".pdf"
-            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=200)
+            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None")
 
         self.fig_overplot.canvas.draw()
 
@@ -1454,18 +1462,21 @@ class overplot_pol(align_maps):
             position = self.other_wcs.world_to_pixel(position)
 
         u, v = pol_deg * np.cos(np.radians(pol_ang) + np.pi / 2.0), pol_deg * np.sin(np.radians(pol_ang) + np.pi / 2.0)
-        for key, value in [["scale", [["scale", self.scale_vec]]], ["width", [["width", 0.1]]], ["color", [["color", "k"]]]]:
+        for key, value in [["scale", [["scale", self.scale_vec]]], ["width", [["width", 0.1]]], ["color", [["color", "k"]]], ["edgecolor", [["edgecolor", "w"]]]]:
             try:
                 _ = kwargs[key]
             except KeyError:
                 for key_i, val_i in value:
                     kwargs[key_i] = val_i
+        handles, labels = self.legend.legend_handles, [l.get_text() for l in self.legend.texts]
         new_vec = self.ax_overplot.quiver(
             *position, u, v, units="xy", angles="uv", scale_units="xy", pivot="mid", headwidth=0.0, headlength=0.0, headaxislength=0.0, **kwargs
         )
+        handles.append(FancyArrowPatch((0, 0), (0, 1), arrowstyle="-", fc=new_vec.get_fc(), ec=new_vec.get_ec()))
+        labels.append(new_vec.get_label())
         self.legend.remove()
         self.legend = self.ax_overplot.legend(
-            title=self.legend_title, bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0
+            title=self.legend_title, handles=handles, labels=labels, bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0
         )
         self.fig_overplot.canvas.draw()
         return new_vec
@@ -1556,7 +1567,7 @@ class align_pol(object):
             length=-0.08,
             fontsize=0.025,
             loc=1,
-            aspect_ratio=-(stkI.shape[1]/stkI.shape[0]),
+            aspect_ratio=-(stkI.shape[1] / stkI.shape[0]),
             sep_y=0.01,
             sep_x=0.01,
             back_length=0.0,
@@ -1605,7 +1616,7 @@ class align_pol(object):
         if savename is not None:
             if savename[-4:] not in [".png", ".jpg", ".pdf"]:
                 savename += ".pdf"
-            fig.savefig(savename, bbox_inches="tight", dpi=300)
+            fig.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None")
 
         plt.show(block=True)
         return fig, ax
@@ -2592,7 +2603,7 @@ class pol_map(object):
                 save_fig.suptitle(r"{0:s} with $SNR_{{p}} \geq$ {1:d} and $SNR_{{I}} \geq$ {2:d}".format(self.targ, int(self.SNRp), int(self.SNRi)))
                 if expression[-4:] not in [".png", ".jpg", ".pdf"]:
                     expression += ".pdf"
-                save_fig.savefig(expression, bbox_inches="tight", dpi=200)
+                save_fig.savefig(expression, bbox_inches="tight", dpi=150, facecolor="None")
                 plt.close(save_fig)
                 text_save.set_val("")
             ax_snr_reset.set(visible=True)
@@ -2810,7 +2821,7 @@ class pol_map(object):
             length=-0.05,
             fontsize=0.02,
             loc=1,
-            aspect_ratio=-(self.I.shape[1]/self.I.shape[0]),
+            aspect_ratio=-(self.I.shape[1] / self.I.shape[0]),
             sep_y=0.01,
             sep_x=0.01,
             back_length=0.0,
@@ -3048,6 +3059,7 @@ class pol_map(object):
             fig.canvas.draw_idle()
 
     def pol_int(self, fig=None, ax=None):
+        str_conf = ""
         if self.region is None:
             s_I = np.sqrt(self.IQU_cov[0, 0])
             I_reg = self.I.sum()
@@ -3108,6 +3120,10 @@ class pol_map(object):
             IQ_reg_err = np.sqrt(np.sum(s_IQ[self.region] ** 2))
             IU_reg_err = np.sqrt(np.sum(s_IU[self.region] ** 2))
             QU_reg_err = np.sqrt(np.sum(s_QU[self.region] ** 2))
+
+            conf = PCconf(QN=Q_reg / I_reg, QN_ERR=Q_reg_err / I_reg, UN=U_reg / I_reg, UN_ERR=U_reg_err / I_reg)
+            if 1.0 - conf > 1e-3:
+                str_conf = "\n" + r"Confidence: {0:.2f} %".format(conf * 100.0)
 
             with np.errstate(divide="ignore", invalid="ignore"):
                 P_reg = np.sqrt(Q_reg**2 + U_reg**2) / I_reg
@@ -3175,6 +3191,7 @@ class pol_map(object):
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
                 + "\n"
                 + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
+                + str_conf
             )
             self.str_cut = ""
             # self.str_cut = "\n"+r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(self.pivot_wav, sci_not(I_cut*self.map_convert, I_cut_err*self.map_convert, 2))+"\n"+r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut*100., np.ceil(P_cut_err*1000.)/10.)+"\n"+r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err*10.)/10.)
@@ -3201,6 +3218,7 @@ class pol_map(object):
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
                 + "\n"
                 + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
+                + str_conf
             )
             str_cut = ""
             # str_cut = "\n"+r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(self.pivot_wav, sci_not(I_cut*self.map_convert, I_cut_err*self.map_convert, 2))+"\n"+r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut*100., np.ceil(P_cut_err*1000.)/10.)+"\n"+r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err*10.)/10.)
@@ -3236,7 +3254,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("-pa", "--pang-err", action="store_true", required=False, help="Whether the polarization angle uncertainties should be displayed")
     parser.add_argument("-l", "--lim", metavar="flux_lim", nargs=2, required=False, help="Limits for the intensity map", type=float, default=None)
-    parser.add_argument("-pdf", "--static-pdf", metavar="static_pdf", required=False, help="Whether the analysis tool or the static pdfs should be outputed", default=None)
+    parser.add_argument(
+        "-pdf", "--static-pdf", metavar="static_pdf", required=False, help="Whether the analysis tool or the static pdfs should be outputed", default=None
+    )
     args = parser.parse_args()
 
     if args.file is not None:
@@ -3350,7 +3370,11 @@ if __name__ == "__main__":
                 display="SNRp",
             )
         else:
-            pol_map(Stokes_UV, SNRp_cut=args.snrp, SNRi_cut=args.snri, step_vec=args.step_vec, scale_vec=args.scale_vec, flux_lim=args.lim, pa_err=args.pang_err)
+            pol_map(
+                Stokes_UV, SNRp_cut=args.snrp, SNRi_cut=args.snri, step_vec=args.step_vec, scale_vec=args.scale_vec, flux_lim=args.lim, pa_err=args.pang_err
+            )
 
     else:
-        print("python3 plots.py -f <path_to_reduced_fits> -p <SNRp_cut> -i <SNRi_cut> -st <step_vec> -sc <scale_vec> -l <flux_lim> -pa <pa_err> --pdf <static_pdf>")
+        print(
+            "python3 plots.py -f <path_to_reduced_fits> -p <SNRp_cut> -i <SNRi_cut> -st <step_vec> -sc <scale_vec> -l <flux_lim> -pa <pa_err> --pdf <static_pdf>"
+        )

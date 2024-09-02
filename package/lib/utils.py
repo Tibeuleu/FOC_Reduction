@@ -28,6 +28,18 @@ def princ_angle(ang):
         return A[0]
 
 
+def PCconf(QN, UN, QN_ERR, UN_ERR):
+    """
+    Compute the confidence level for 2 parameters polarisation degree and
+    polarisation angle from the PCUBE analysis.
+    """
+    mask = np.logical_and(QN_ERR > 0.0, UN_ERR > 0.0)
+    conf = np.full(QN.shape, -1.0)
+    chi2 = QN**2 / QN_ERR**2 + UN**2 / UN_ERR**2
+    conf[mask] = 1.0 - np.exp(-0.5 * chi2[mask])
+    return conf
+
+
 def sci_not(v, err, rnd=1, out=str):
     """
     Return the scientifque error notation as a string.
@@ -45,6 +57,7 @@ def sci_not(v, err, rnd=1, out=str):
         return output[0] + r")e{0}".format(-power)
     else:
         return *output[1:], -power
+
 
 def wcs_PA(PC21, PC22):
     """

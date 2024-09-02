@@ -36,12 +36,12 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Background estimation
     error_sub_type = "freedman-diaconis"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
-    subtract_error = 2.0
+    subtract_error = 0.5
     display_bkg = False
 
     # Data binning
-    pxsize = 2
-    pxscale = "px"  # pixel, arcsec or full
+    pxsize = 0.05
+    pxscale = "arcsec"  # pixel, arcsec or full
     rebin_operation = "sum"  # sum or average
 
     # Alignement
@@ -54,8 +54,8 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Smoothing
     smoothing_function = "combine"  # gaussian_after, weighted_gaussian_after, gaussian, weighted_gaussian or combine
-    smoothing_FWHM = 1.50       # If None, no smoothing is done
-    smoothing_scale = "px"      # pixel or arcsec
+    smoothing_FWHM = 0.075     # If None, no smoothing is done
+    smoothing_scale = "arcsec"  # pixel or arcsec
 
     # Rotation
     rotate_North = True
@@ -64,7 +64,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     SNRp_cut = 3.0  # P measurments with SNR>3
     SNRi_cut = 1.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
     flux_lim = None  # lowest and highest flux displayed on plot, defaults to bkg and maximum in cut if None
-    scale_vec = 5
+    scale_vec = 3
     step_vec = 1  # plot all vectors in the array. if step_vec = 2, then every other vector will be plotted if step_vec = 0 then all vectors are displayed at full length
 
     # Pipeline start
