@@ -39,6 +39,23 @@ def PCconf(QN, UN, QN_ERR, UN_ERR):
     conf[mask] = 1.0 - np.exp(-0.5 * chi2[mask])
     return conf
 
+def Centerconf(mask, PA, sPA):
+    """
+    Compute the confidence map for the position of the center of emission.
+    """
+    chi2 = np.full(PA.shape, np.nan)
+    conf = np.full(PA.shape, -1.0)
+    yy, xx = np.indices(PA.shape)
+    def ideal(c):
+        itheta = np.degrees(np.arctan((yy+0.5-c[1])/(xx+0.5-c[0])))
+        itheta[np.isnan(itheta)] = PA[np.isnan(itheta)]
+        return princ_angle(itheta)
+    def chisq(c):
+        return np.sum((princ_angle(PA[mask])-ideal((x,y))[mask])**2/sPA[mask]**2)/np.sum(mask)
+    for x,y in zip(xx[np.isfinite(PA)],yy[np.isfinite(PA)]):
+        chi2[y,x] = chisq((x,y))
+    conf[mask] = 1.0 - np.exp(-0.5*chi2[mask])
+    return conf
 
 def sci_not(v, err, rnd=1, out=str):
     """
