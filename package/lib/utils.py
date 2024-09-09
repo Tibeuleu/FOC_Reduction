@@ -39,23 +39,38 @@ def PCconf(QN, UN, QN_ERR, UN_ERR):
     conf[mask] = 1.0 - np.exp(-0.5 * chi2[mask])
     return conf
 
-def Centerconf(mask, PA, sPA):
+
+def CenterConf(mask, PA, sPA):
     """
     Compute the confidence map for the position of the center of emission.
     """
     chi2 = np.full(PA.shape, np.nan)
     conf = np.full(PA.shape, -1.0)
     yy, xx = np.indices(PA.shape)
+
     def ideal(c):
-        itheta = np.degrees(np.arctan((yy+0.5-c[1])/(xx+0.5-c[0])))
-        itheta[np.isnan(itheta)] = PA[np.isnan(itheta)]
+        itheta = np.full(PA.shape, np.nan)
+        itheta[(xx + 0.5) != c[0]] = np.degrees(np.arctan((yy[(xx + 0.5) != c[0]] + 0.5 - c[1]) / (xx[(xx + 0.5) != c[0]] + 0.5 - c[0])))
+        itheta[(xx + 0.5) == c[0]] = PA[(xx + 0.5) == c[0]]
         return princ_angle(itheta)
+
     def chisq(c):
-        return np.sum((princ_angle(PA[mask])-ideal((x,y))[mask])**2/sPA[mask]**2)/np.sum(mask)
-    for x,y in zip(xx[np.isfinite(PA)],yy[np.isfinite(PA)]):
-        chi2[y,x] = chisq((x,y))
-    conf[mask] = 1.0 - np.exp(-0.5*chi2[mask])
-    return conf
+        return np.sum((princ_angle(PA[mask]) - ideal((c[0], c[1]))[mask]) ** 2 / sPA[mask] ** 2) / np.sum(mask)
+
+    for x, y in zip(xx[np.isfinite(PA)], yy[np.isfinite(PA)]):
+        chi2[y, x] = chisq((x, y))
+
+    from scipy.optimize import minimize
+    from scipy.special import gammainc
+
+    conf[np.isfinite(PA)] = 1.0 - gammainc(0.5, 0.5 * chi2[np.isfinite(PA)])
+    result = minimize(chisq, np.array(PA.shape) / 2.0, bounds=[(0, PA.shape[1]), (0.0, PA.shape[0])])
+    if result.success:
+        print("Center of emission found")
+    else:
+        print("Center of emission not found")
+    return conf, result.x
+
 
 def sci_not(v, err, rnd=1, out=str):
     """
