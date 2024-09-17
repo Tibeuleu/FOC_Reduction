@@ -1,6 +1,9 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-# Project libraries
+from pathlib import Path
+from sys import path as syspath
+
+syspath.append(str(Path(__file__).parent.parent))
 
 import numpy as np
 

@@ -3,6 +3,10 @@
 """
 Main script where are progressively added the steps for the FOC pipeline reduction.
 """
+from pathlib import Path
+from sys import path as syspath
+
+syspath.append(str(Path(__file__).parent.parent))
 
 # Project libraries
 from copy import deepcopy
@@ -61,7 +65,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     rotate_North = True
 
     #  Polarization map output
-    SNRp_cut = 3.0  # P measurments with SNR>3
+    P_cut = 0.99  # if >=1.0 cut on the signal-to-noise else cut on the confidence level in Q, U
     SNRi_cut = 1.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
     flux_lim = None  # lowest and highest flux displayed on plot, defaults to bkg and maximum in cut if None
     scale_vec = 3
@@ -292,7 +296,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -303,7 +307,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -315,7 +319,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -327,7 +331,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -339,7 +343,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -351,7 +355,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -363,7 +367,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -375,7 +379,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -387,7 +391,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut if P_cut >= 1. else 3.,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -396,12 +400,24 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
             plots_folder=plots_folder,
             display="SNRp",
         )
+        proj_plots.polarization_map(
+            deepcopy(Stokes_hdul),
+            data_mask,
+            P_cut=P_cut if P_cut < 1. else 0.99,
+            SNRi_cut=SNRi_cut,
+            flux_lim=flux_lim,
+            step_vec=step_vec,
+            scale_vec=scale_vec,
+            savename="_".join([figname, "confP"]),
+            plots_folder=plots_folder,
+            display="confp",
+        )
     elif not interactive:
         proj_plots.polarization_map(
-            deepcopy(Stokes_hdul), data_mask, SNRp_cut=SNRp_cut, SNRi_cut=SNRi_cut, savename=figname, plots_folder=plots_folder, display="integrate"
+            deepcopy(Stokes_hdul), data_mask, P_cut=P_cut, SNRi_cut=SNRi_cut, savename=figname, plots_folder=plots_folder, display="integrate"
         )
     elif pxscale.lower() not in ["full", "integrate"]:
-        proj_plots.pol_map(Stokes_hdul, SNRp_cut=SNRp_cut, SNRi_cut=SNRi_cut, step_vec=step_vec, scale_vec=scale_vec, flux_lim=flux_lim)
+        proj_plots.pol_map(Stokes_hdul, P_cut=P_cut, SNRi_cut=SNRi_cut, step_vec=step_vec, scale_vec=scale_vec, flux_lim=flux_lim)
 
     return outfiles
 
