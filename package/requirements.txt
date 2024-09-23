@@ -1,0 +1,7 @@
+# Requirements for FOC_Reduction
+
+numpy
+scipy
+astropy
+astroquery  # To directly query the Mast archives
+matplotlib >= 3.8   # Brought some depreciation on ContourSet

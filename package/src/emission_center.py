@@ -15,11 +15,9 @@ def main(infile, target=None, output_dir=None):
     from lib.plots import polarization_map
     from lib.utils import CenterConf, PCconf
     from matplotlib.patches import Rectangle
-    from matplotlib.pyplot import show
+    from matplotlib.pyplot import figure, show
 
     output = []
-    levelssnr = np.array([3.0, 4.0])
-    levelsconf = np.array([0.99])
 
     Stokes = fits_open(infile)
     stkI = Stokes["I_STOKES"].data
@@ -42,26 +40,30 @@ def main(infile, target=None, output_dir=None):
     if target is None:
         target = Stokes[0].header["TARGNAME"]
 
-    fig, ax = polarization_map(Stokes, P_cut=0.99, step_vec=2, scale_vec=5, display="i")
+    fig = figure(figsize=(8,9),layout="constrained")
+    fig, ax = polarization_map(Stokes, P_cut=0.99, step_vec=2, scale_vec=5, display="i", fig=fig)
 
-    snrcont = ax.contour(Stokessnr, levelssnr, colors="b")
-    confcont = ax.contour(Stokesconf, levelsconf, colors="r")
-    confcenter = ax.plot(*Stokescenter, marker="+", color="gray", label="Best confidence for center: {0}".format(Stokespos.to_string("hmsdms")))
+    ax.plot(*Stokescenter, marker="+", color="gray", label="Best confidence for center: {0}".format(Stokespos.to_string("hmsdms")))
     confcentcont = ax.contour(Stokescentconf, [0.01], colors="gray")
+    confcont = ax.contour(Stokesconf, [0.99], colors="r")
+    snr3cont = ax.contour(Stokessnr, [3.0], colors="b", linestyles="dashed")
+    snr4cont = ax.contour(Stokessnr, [4.0], colors="b")
     handles, labels = ax.get_legend_handles_labels()
-    labels.append(r"$SNR_P \geq$ 3 and 4  contours")
-    handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=snrcont.get_edgecolor()[0]))
-    labels.append(r"Polarization $Conf_{99\%}$ contour")
-    handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=confcont.get_edgecolor()[0]))
     labels.append(r"Center $Conf_{99\%}$ contour")
     handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=confcentcont.get_edgecolor()[0]))
-    ax.legend(handles=handles, labels=labels, bbox_to_anchor=(0.0, -0.12, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0)
-    show()
+    labels.append(r"Polarization $Conf_{99\%}$ contour")
+    handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=confcont.get_edgecolor()[0]))
+    labels.append(r"$SNR_P \geq$ 3  contour")
+    handles.append(Rectangle((0, 0), 1, 1, fill=False, ls="--", ec=snr3cont.get_edgecolor()[0]))
+    labels.append(r"$SNR_P \geq$ 4  contour")
+    handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=snr4cont.get_edgecolor()[0]))
+    ax.legend(handles=handles, labels=labels, bbox_to_anchor=(0.0, -0.02, 1.0, 0.01), loc="upper left", mode="expand", borderaxespad=0.0)
 
     if output_dir is not None:
         filename = pathjoin(output_dir, "%s_center.pdf" % target)
         fig.savefig(filename, dpi=150, facecolor="None")
         output.append(filename)
+    show()
     return output
 
 

@@ -221,6 +221,8 @@ def polarization_map(
     savename=None,
     plots_folder="",
     display="default",
+    fig=None,
+    ax=None,
 ):
     """
     Plots polarization map from Stokes HDUList.
@@ -338,10 +340,13 @@ def polarization_map(
     # Plot the map
     plt.rcParams.update({"font.size": 14})
     plt.rcdefaults()
-    ratiox = max(int(stkI.shape[1] / (stkI.shape[0])), 1)
-    ratioy = max(int((stkI.shape[0]) / stkI.shape[1]), 1)
-    fig, ax = plt.subplots(figsize=(7 * ratiox, 7 * ratioy), layout="compressed", subplot_kw=dict(projection=wcs))
-    ax.set(aspect="equal", fc="k", ylim=[-stkI.shape[0] * 0.10, stkI.shape[0] * 1.15])
+    if fig is None:
+        ratiox = max(int(stkI.shape[1] / (stkI.shape[0])), 1)
+        ratioy = max(int((stkI.shape[0]) / stkI.shape[1]), 1)
+        fig = plt.figure(figsize=(7 * ratiox, 7 * ratioy), layout="constrained")
+    if ax is None:
+        ax = fig.add_subplot(111, projection=wcs)
+        ax.set(aspect="equal", fc="k", ylim=[-stkI.shape[0] * 0.10, stkI.shape[0] * 1.15])
     # fig.subplots_adjust(hspace=0, wspace=0, left=0.102, right=1.02)
 
     # ax.coords.grid(True, color='white', ls='dotted', alpha=0.5)
