@@ -40,16 +40,16 @@ def main(infile, target=None, output_dir=None):
     if target is None:
         target = Stokes[0].header["TARGNAME"]
 
-    fig = figure(figsize=(8,9),layout="constrained")
+    fig = figure(figsize=(8,8),layout="constrained")
     fig, ax = polarization_map(Stokes, P_cut=0.99, step_vec=2, scale_vec=5, display="i", fig=fig)
 
     ax.plot(*Stokescenter, marker="+", color="gray", label="Best confidence for center: {0}".format(Stokespos.to_string("hmsdms")))
-    confcentcont = ax.contour(Stokescentconf, [0.01], colors="gray")
-    confcont = ax.contour(Stokesconf, [0.99], colors="r")
+    confcentcont = ax.contour(Stokescentconf, [0.001], colors="gray")
+    confcont = ax.contour(Stokesconf, [0.9905], colors="r")
     snr3cont = ax.contour(Stokessnr, [3.0], colors="b", linestyles="dashed")
     snr4cont = ax.contour(Stokessnr, [4.0], colors="b")
     handles, labels = ax.get_legend_handles_labels()
-    labels.append(r"Center $Conf_{99\%}$ contour")
+    labels.append(r"Center $Conf_{99.9\%}$ contour")
     handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=confcentcont.get_edgecolor()[0]))
     labels.append(r"Polarization $Conf_{99\%}$ contour")
     handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=confcont.get_edgecolor()[0]))
@@ -61,7 +61,7 @@ def main(infile, target=None, output_dir=None):
 
     if output_dir is not None:
         filename = pathjoin(output_dir, "%s_center.pdf" % target)
-        fig.savefig(filename, dpi=150, facecolor="None")
+        fig.savefig(filename, dpi=300, facecolor="None")
         output.append(filename)
     show()
     return output

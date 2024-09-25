@@ -60,7 +60,10 @@ from mpl_toolkits.axes_grid1.anchored_artists import (
 )
 from scipy.ndimage import zoom as sc_zoom
 
-from .utils import PCconf, princ_angle, rot2D, sci_not
+try:
+    from .utils import PCconf, princ_angle, rot2D, sci_not
+except ImportError:
+    from utils import PCconf, princ_angle, rot2D, sci_not
 
 
 def plot_obs(data_array, headers, rectangle=None, savename=None, plots_folder="", **kwargs):
@@ -205,7 +208,6 @@ def plot_Stokes(Stokes, savename=None, plots_folder=""):
         else:
             savename = savename[:-4] + "_IQU" + savename[-4:]
         fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
-    plt.show()
     return 0
 
 
@@ -562,7 +564,7 @@ def polarization_map(
     if savename is not None:
         if savename[-4:] not in [".png", ".jpg", ".pdf"]:
             savename += ".pdf"
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
+        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=300, facecolor="None")
 
     return fig, ax
 
@@ -3353,132 +3355,149 @@ if __name__ == "__main__":
     parser.add_argument(
         "-pdf", "--static-pdf", metavar="static_pdf", required=False, help="Whether the analysis tool or the static pdfs should be outputed", default=None
     )
+    parser.add_argument(
+        "-t", "--type", metavar="type", required=False, help="Type of plot to be be outputed", default=None
+    )
     args = parser.parse_args()
 
     if args.file is not None:
         Stokes_UV = fits.open(args.file, mode="readonly")
         if args.static_pdf is not None:
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"]]),
-                plots_folder=args.static_pdf,
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "I"]),
-                plots_folder=args.static_pdf,
-                display="Intensity",
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "P_flux"]),
-                plots_folder=args.static_pdf,
-                display="Pol_Flux",
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "P"]),
-                plots_folder=args.static_pdf,
-                display="Pol_deg",
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "PA"]),
-                plots_folder=args.static_pdf,
-                display="Pol_ang",
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "I_err"]),
-                plots_folder=args.static_pdf,
-                display="I_err",
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "P_err"]),
-                plots_folder=args.static_pdf,
-                display="Pol_deg_err",
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "SNRi"]),
-                plots_folder=args.static_pdf,
-                display="SNRi",
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut if args.p_cut >= 1.0 else 3.0,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "SNRp"]),
-                plots_folder=args.static_pdf,
-                display="SNRp",
-            )
-            polarization_map(
-                Stokes_UV,
-                Stokes_UV["DATA_MASK"].data.astype(bool),
-                P_cut=args.p_cut if args.p_cut < 1.0 else 0.99,
-                SNRi_cut=args.snri,
-                flux_lim=args.lim,
-                step_vec=args.step_vec,
-                scale_vec=args.scale_vec,
-                savename="_".join([Stokes_UV[0].header["FILENAME"], "confP"]),
-                plots_folder=args.static_pdf,
-                display="confp",
-            )
+            if args.type is not None:
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], args.type]),
+                    plots_folder=args.static_pdf,
+                    display=args.type,
+                )
+            else:
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"]]),
+                    plots_folder=args.static_pdf,
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "I"]),
+                    plots_folder=args.static_pdf,
+                    display="Intensity",
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "P_flux"]),
+                    plots_folder=args.static_pdf,
+                    display="Pol_Flux",
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "P"]),
+                    plots_folder=args.static_pdf,
+                    display="Pol_deg",
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "PA"]),
+                    plots_folder=args.static_pdf,
+                    display="Pol_ang",
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "I_err"]),
+                    plots_folder=args.static_pdf,
+                    display="I_err",
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "P_err"]),
+                    plots_folder=args.static_pdf,
+                    display="Pol_deg_err",
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "SNRi"]),
+                    plots_folder=args.static_pdf,
+                    display="SNRi",
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut if args.pcut >= 1.0 else 3.0,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "SNRp"]),
+                    plots_folder=args.static_pdf,
+                    display="SNRp",
+                )
+                polarization_map(
+                    Stokes_UV,
+                    Stokes_UV["DATA_MASK"].data.astype(bool),
+                    P_cut=args.pcut if args.pcut < 1.0 else 0.99,
+                    SNRi_cut=args.snri,
+                    flux_lim=args.lim,
+                    step_vec=args.step_vec,
+                    scale_vec=args.scale_vec,
+                    savename="_".join([Stokes_UV[0].header["FILENAME"], "confP"]),
+                    plots_folder=args.static_pdf,
+                    display="confp",
+                )
         else:
-            pol_map(Stokes_UV, P_cut=args.p_cut, SNRi_cut=args.snri, step_vec=args.step_vec, scale_vec=args.scale_vec, flux_lim=args.lim, pa_err=args.pang_err)
+            pol_map(Stokes_UV, P_cut=args.pcut, SNRi_cut=args.snri, step_vec=args.step_vec, scale_vec=args.scale_vec, flux_lim=args.lim, pa_err=args.pang_err, selection=args.type)
     else:
         print(
             "python3 plots.py -f <path_to_reduced_fits> -p <P_cut> -i <SNRi_cut> -st <step_vec> -sc <scale_vec> -l <flux_lim> -pa <pa_err> --pdf <static_pdf>"

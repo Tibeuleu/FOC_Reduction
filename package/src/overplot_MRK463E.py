@@ -10,7 +10,7 @@ from astropy.io import fits
 from lib.plots import overplot_chandra, overplot_pol
 from matplotlib.colors import LogNorm
 
-Stokes_UV = fits.open("./data/MRK463E/5960/MRK463E_FOC_b0.05arcsec_c0.07arcsec.fits")
+Stokes_UV = fits.open("./data/MRK463E/5960/MRK463E_FOC_b0.05arcsec_c0.10arcsec.fits")
 Stokes_IR = fits.open("./data/MRK463E/WFPC2/IR_rot_crop.fits")
 Stokes_Xr = fits.open("./data/MRK463E/Chandra/X_ray_crop.fits")
 
