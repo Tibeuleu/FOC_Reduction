@@ -3,6 +3,7 @@
 """
 Main script where are progressively added the steps for the FOC pipeline reduction.
 """
+
 from pathlib import Path
 from sys import path as syspath
 
@@ -58,7 +59,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Smoothing
     smoothing_function = "combine"  # gaussian_after, weighted_gaussian_after, gaussian, weighted_gaussian or combine
-    smoothing_FWHM = 0.075     # If None, no smoothing is done
+    smoothing_FWHM = 0.075  # If None, no smoothing is done
     smoothing_scale = "arcsec"  # pixel or arcsec
 
     # Rotation
@@ -391,7 +392,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            P_cut=P_cut if P_cut >= 1. else 3.,
+            P_cut=P_cut if P_cut >= 1.0 else 3.0,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -403,7 +404,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            P_cut=P_cut if P_cut < 1. else 0.99,
+            P_cut=P_cut if P_cut < 1.0 else 0.99,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
