@@ -173,7 +173,7 @@ def main(infiles, target=None, output_dir="./data/"):
     # Reduction parameters
     kwargs = {}
     #  Polarization map output
-    kwargs["SNRp_cut"] = 3.0
+    kwargs["P_cut"] = 0.99
     kwargs["SNRi_cut"] = 1.0
     kwargs["flux_lim"] = 1e-19, 3e-17
     kwargs["scale_vec"] = 5
@@ -186,9 +186,7 @@ def main(infiles, target=None, output_dir="./data/"):
 
         new_infiles = []
         for i, group in enumerate(grouped_infiles):
-            new_infiles.append(
-                FOC_reduction(target=target + "-" + str(i + 1), infiles=["/".join([data_folder, file]) for file in group], interactive=True)[0]
-            )
+            new_infiles.append(FOC_reduction(target=target + "-" + str(i + 1), infiles=["/".join([data_folder, file]) for file in group], interactive=True)[0])
 
         infiles = new_infiles
 

@@ -30,10 +30,10 @@ A.add_vector(
     A.other_wcs.celestial.wcs.crpix - (1.0, 1.0),
     pol_deg=0.124,
     pol_ang=100.7,
-    width=2,
-    linewidth=2,
+    width=2.0,
+    linewidth=1.0,
     scale=1.0 / (A.px_scale * 6.0),
-    edgecolor="b",
+    edgecolor="w",
     color="b",
     label=r"IXPE torus: P = $12.4 (\pm 3.6)$%, PA = $100.7 (\pm 8.3)$°",
 )
