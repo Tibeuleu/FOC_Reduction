@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """
 Library functions for displaying  informations using matplotlib
 
@@ -270,6 +270,7 @@ def polarization_map(
     scale_vec : float, optional
         Pixel length of displayed 100% polarization vector.
         If scale_vec = 2, a vector of 50% polarization will be 1 pixel wide.
+        If scale_vec = 0, all polarization vectors will be displayed at full length.
         Defaults to 2.
     savename : str, optional
         Name of the figure the map should be saved to. If None, the map won't
@@ -412,7 +413,7 @@ def polarization_map(
         ax.set_facecolor("white")
         font_color = "black"
 
-    if display.lower() in ["intensity"]:
+    if display.lower() in ["i", "intensity"]:
         # If no display selected, show intensity map
         display = "i"
         if flux_lim is None:
@@ -427,19 +428,22 @@ def polarization_map(
         levelsI = np.array([0.8, 2.0, 5.0, 10.0, 20.0, 50.0]) / 100.0 * vmax
         print("Total flux contour levels : ", levelsI)
         ax.contour(stkI * convert_flux, levels=levelsI, colors="grey", linewidths=0.5)
-    elif display.lower() in ["pol_flux"]:
+    elif display.lower() in ["pf", "pol_flux"]:
         # Display polarization flux
         display = "pf"
         if flux_lim is None:
             if mask.sum() > 0.0:
                 vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+                pfmax = (stkI[mask] * pol[mask] * convert_flux).max()
             else:
                 vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+                pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
         else:
             vmin, vmax = flux_lim
         im = ax.imshow(stkI * convert_flux * pol, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
-        levelsPf = np.linspace(vmax * 0.01, vmax * 0.99, 10)
+        # levelsPf = np.linspace(0.0175, 0.50, 5) * pfmax
+        levelsPf = np.array([1.73, 13.0, 33.0, 66.0]) / 100.0 * pfmax
         print("Polarized flux contour levels : ", levelsPf)
         ax.contour(stkI * convert_flux * pol, levels=levelsPf, colors="grey", linewidths=0.5)
     elif display.lower() in ["p", "pol", "pol_deg"]:
@@ -548,8 +552,8 @@ def polarization_map(
         arrow_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 1},
     )
 
-    if display.lower() in ["i", "s_i", "snri", "pf", "p", "pa", "s_p", "snrp", "confp"]:
-        if step_vec == 0:
+    if display.lower() in ["i", "s_i", "snri", "pf", "p", "pa", "s_p", "snrp", "confp"] and step_vec != 0:
+        if scale_vec == -1:
             poldata[np.isfinite(poldata)] = 1.0 / 2.0
             step_vec = 1
             scale_vec = 2.0
@@ -1359,7 +1363,7 @@ class overplot_pol(align_maps):
     Inherit from class align_maps in order to get the same WCS on both maps.
     """
 
-    def overplot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, scale_vec=2.0, step_vec=1, savename=None, **kwargs):
+    def overplot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, step_vec=1, scale_vec=2.0, disptype="i", savename=None, **kwargs):
         self.Stokes_UV = self.map
         self.wcs_UV = self.map_wcs
         # Get Data
@@ -1402,13 +1406,6 @@ class overplot_pol(align_maps):
 
         self.ax_overplot.set_xlabel(label="Right Ascension (J2000)")
         self.ax_overplot.set_ylabel(label="Declination (J2000)", labelpad=-1)
-        self.fig_overplot.suptitle(
-            "{0:s} observation from {1:s} overplotted with polarization vectors and Stokes I contours from {2:s}".format(
-                obj, self.other_observer, self.map_observer
-            ),
-            wrap=True,
-        )
-
         # Display "other" intensity map
         vmin, vmax = other_data[other_data > 0.0].max() / 1e3 * self.other_convert, other_data[other_data > 0.0].max() * self.other_convert
         for key, value in [
@@ -1459,59 +1456,85 @@ class overplot_pol(align_maps):
         )
 
         # Display full size polarization vectors
-        if scale_vec is None:
-            self.scale_vec = 2.0 * self.px_scale
-            pol[np.isfinite(pol)] = 1.0 / 2.0
-        else:
-            self.scale_vec = scale_vec * self.px_scale
-        self.X, self.Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
-        self.U, self.V = pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0)
-        self.Q = self.ax_overplot.quiver(
-            self.X[::step_vec, ::step_vec],
-            self.Y[::step_vec, ::step_vec],
-            self.U[::step_vec, ::step_vec],
-            self.V[::step_vec, ::step_vec],
-            units="xy",
-            angles="uv",
-            scale=1.0 / self.scale_vec,
-            scale_units="xy",
-            pivot="mid",
-            headwidth=0.0,
-            headlength=0.0,
-            headaxislength=0.0,
-            width=kwargs["width"],
-            linewidth=kwargs["linewidth"],
-            color="white",
-            edgecolor="black",
-            transform=self.ax_overplot.get_transform(self.wcs_UV),
-            label="{0:s} polarization map".format(self.map_observer),
-        )
+        vecstr = ""
+        if step_vec != 0:
+            vecstr = "polarization vectors "
+            if scale_vec is None:
+                self.scale_vec = 2.0 * self.px_scale
+                pol[np.isfinite(pol)] = 1.0 / 2.0
+            else:
+                self.scale_vec = scale_vec * self.px_scale
+            self.X, self.Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
+            self.U, self.V = pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0)
+            self.Q = self.ax_overplot.quiver(
+                self.X[::step_vec, ::step_vec],
+                self.Y[::step_vec, ::step_vec],
+                self.U[::step_vec, ::step_vec],
+                self.V[::step_vec, ::step_vec],
+                units="xy",
+                angles="uv",
+                scale=1.0 / self.scale_vec,
+                scale_units="xy",
+                pivot="mid",
+                headwidth=0.0,
+                headlength=0.0,
+                headaxislength=0.0,
+                width=kwargs["width"],
+                linewidth=kwargs["linewidth"],
+                color="white",
+                edgecolor="black",
+                transform=self.ax_overplot.get_transform(self.wcs_UV),
+                label="{0:s} polarization map".format(self.map_observer),
+            )
 
-        # Display Stokes I as contours
-        if levels is None:
-            levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0]) * self.map_convert
-        cont_stkI = self.ax_overplot.contour(
-            stkI * self.map_convert, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
-        )
-        # self.ax_overplot.clabel(cont_stkI, inline=True, fontsize=5)
+        # Display Stokes as contours
+        disptypestr = ""
+        if disptype.lower() == "p":
+            disptypestr = "polarization degree"
+            if levels is None:
+                levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(pol[stkI > 0.0])
+            cont_stk = self.ax_overplot.contour(
+                pol * 100.0, levels=levels * 100.0, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
+            )
+        if disptype.lower() == "pf":
+            disptypestr = "polarized flux"
+            if levels is None:
+                levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0] * pol[stkI > 0.0]) * self.map_convert
+            cont_stk = self.ax_overplot.contour(
+                stkI * pol * self.map_convert, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
+            )
+        if disptype.lower() == "snri":
+            disptypestr = "Stokes I signal-to-noise"
+            if levels is None:
+                levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(SNRi[stk_cov[0, 0] > 0.0])
+            cont_stk = self.ax_overplot.contour(SNRi, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV))
+        else:  # default to intensity contours
+            disptypestr = "Stokes I"
+            if levels is None:
+                levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0]) * self.map_convert
+            cont_stk = self.ax_overplot.contour(
+                stkI * self.map_convert, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
+            )
+        # self.ax_overplot.clabel(cont_stk, inline=False, colors="k", fontsize=7)
 
         # Display pixel scale and North direction
-        fontprops = fm.FontProperties(size=16)
-        px_size = self.other_wcs.wcs.get_cdelt()[0] * 3600.0
-        px_sc = AnchoredSizeBar(
-            self.ax_overplot.transData,
-            1.0 / px_size,
-            "1 arcsec",
-            3,
-            pad=0.5,
-            sep=5,
-            borderpad=0.5,
-            frameon=False,
-            size_vertical=0.005,
-            color=font_color,
-            fontproperties=fontprops,
-        )
-        self.ax_overplot.add_artist(px_sc)
+        if step_vec != 0:
+            fontprops = fm.FontProperties(size=16)
+            px_size = self.other_wcs.wcs.get_cdelt()[0] * 3600.0
+            px_sc = AnchoredSizeBar(
+                self.ax_overplot.transData,
+                1.0 / px_size,
+                "1 arcsec",
+                3,
+                pad=0.5,
+                sep=5,
+                borderpad=0.5,
+                frameon=False,
+                size_vertical=0.005,
+                color=font_color,
+                fontproperties=fontprops,
+            )
+            self.ax_overplot.add_artist(px_sc)
         north_dir = AnchoredDirectionArrows(
             self.ax_overplot.transAxes,
             "E",
@@ -1528,20 +1551,21 @@ class overplot_pol(align_maps):
             arrow_props={"ec": "k", "fc": "w", "alpha": 1, "lw": 0.5},
         )
         self.ax_overplot.add_artist(north_dir)
-        pol_sc = AnchoredSizeBar(
-            self.ax_overplot.transData,
-            self.scale_vec,
-            r"$P$= 100%",
-            4,
-            pad=0.5,
-            sep=5,
-            borderpad=0.5,
-            frameon=False,
-            size_vertical=0.005,
-            color=font_color,
-            fontproperties=fontprops,
-        )
-        self.ax_overplot.add_artist(pol_sc)
+        if step_vec != 0:
+            pol_sc = AnchoredSizeBar(
+                self.ax_overplot.transData,
+                self.scale_vec,
+                r"$P$= 100%",
+                4,
+                pad=0.5,
+                sep=5,
+                borderpad=0.5,
+                frameon=False,
+                size_vertical=0.005,
+                color=font_color,
+                fontproperties=fontprops,
+            )
+            self.ax_overplot.add_artist(pol_sc)
 
         (self.cr_map,) = self.ax_overplot.plot(*(self.map_wcs.celestial.wcs.crpix - (1.0, 1.0)), "r+", transform=self.ax_overplot.get_transform(self.wcs_UV))
         (self.cr_other,) = self.ax_overplot.plot(*(self.other_wcs.celestial.wcs.crpix - (1.0, 1.0)), "g+")
@@ -1554,13 +1578,19 @@ class overplot_pol(align_maps):
             self.legend_title = r"{0:s} image".format(self.other_observer)
 
         handles, labels = self.ax_overplot.get_legend_handles_labels()
-        handles[np.argmax([li == "{0:s} polarization map".format(self.map_observer) for li in labels])] = FancyArrowPatch(
-            (0, 0), (0, 1), arrowstyle="-", fc="w", ec="k", lw=2
-        )
-        labels.append("{0:s} Stokes I contour".format(self.map_observer))
-        handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=cont_stkI.get_edgecolor()[0]))
+        if step_vec != 0:
+            handles[np.argmax([li == "{0:s} polarization map".format(self.map_observer) for li in labels])] = FancyArrowPatch(
+                (0, 0), (0, 1), arrowstyle="-", fc="w", ec="k", lw=2
+            )
+        labels.append("{0:s} {1:s} contour".format(self.map_observer, disptypestr))
+        handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=cont_stk.get_edgecolor()[0]))
         self.legend = self.ax_overplot.legend(
             handles=handles, labels=labels, bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0
+        )
+
+        self.fig_overplot.suptitle(
+            "{0:s} observation from {1:s} overplotted with {2:s} contours from {3:s}".format(obj, self.other_observer, vecstr + disptypestr, self.map_observer),
+            wrap=True,
         )
 
         if savename is not None:
@@ -1570,10 +1600,10 @@ class overplot_pol(align_maps):
 
         self.fig_overplot.canvas.draw()
 
-    def plot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, scale_vec=2.0, savename=None, **kwargs) -> None:
+    def plot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, step_vec=1, scale_vec=2.0, disptype="i", savename=None, **kwargs) -> None:
         while not self.aligned:
             self.align()
-        self.overplot(levels=levels, P_cut=P_cut, SNRi_cut=SNRi_cut, scale_vec=scale_vec, savename=savename, **kwargs)
+        self.overplot(levels=levels, P_cut=P_cut, SNRi_cut=SNRi_cut, step_vec=step_vec, scale_vec=scale_vec, disptype=disptype, savename=savename, **kwargs)
         plt.show(block=True)
 
     def add_vector(self, position="center", pol_deg=1.0, pol_ang=0.0, **kwargs):
@@ -3360,8 +3390,17 @@ class pol_map(object):
                 + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
                 + str_conf
             )
-            self.str_cut = ""
-            # self.str_cut = "\n"+r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(self.pivot_wav, sci_not(I_cut*self.map_convert, I_cut_err*self.map_convert, 2))+"\n"+r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut*100., np.ceil(P_cut_err*1000.)/10.)+"\n"+r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err*10.)/10.)
+            # self.str_cut = ""
+            self.str_cut = (
+                "\n"
+                + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
+                    self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
+                )
+                + "\n"
+                + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
+                + "\n"
+                + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
+            )
             self.an_int = ax.annotate(
                 self.str_int + self.str_cut,
                 color="white",
@@ -3387,8 +3426,17 @@ class pol_map(object):
                 + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
                 + str_conf
             )
-            str_cut = ""
-            # str_cut = "\n"+r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(self.pivot_wav, sci_not(I_cut*self.map_convert, I_cut_err*self.map_convert, 2))+"\n"+r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut*100., np.ceil(P_cut_err*1000.)/10.)+"\n"+r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err*10.)/10.)
+            # str_cut = ""
+            str_cut = (
+                "\n"
+                + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
+                    self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
+                )
+                + "\n"
+                + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
+                + "\n"
+                + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
+            )
             ax.annotate(
                 str_int + str_cut,
                 color="white",

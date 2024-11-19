@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 from pathlib import Path
 from sys import path as syspath
@@ -26,18 +26,21 @@ Radio = fits.open("./data/MRK463E/EMERLIN/Voorwerpjes_1356+1822_1356+1822_unifor
 # B.plot(levels=levels, P_cut=0.99, SNRi_cut=1.0, scale_vec=5, norm=LogNorm(8.5e-18, 2.5e-15), savename="./plots/MRK463E/IR_overplot.pdf")
 # B.write_to(path1="./data/MRK463E/FOC_data_WFPC.fits", path2="./data/MRK463E/WFPC_data.fits", suffix="aligned")
 
-levels = np.array([0.8, 2, 5, 10, 20, 50]) / 100.0 * Stokes_UV[0].header["photflam"]
+# levels = np.array([0.8, 2, 5, 10, 20, 50]) / 100.0 * Stokes_UV[0].header["photflam"]
+levels = np.array([5, 10, 20, 50])
 C = overplot_pol(Stokes_UV, Radio, norm=LogNorm())
 C.other_im.set(norm=LogNorm(1e-4, 2e-2))
 C.plot(
     levels=levels,
-    P_cut=0.999,
-    SNRi_cut=5.0,
+    P_cut=0.99,
+    SNRi_cut=1.0,
+    step_vec=0,
     scale_vec=3,
     norm=LogNorm(1e-4, 2e-2),
     cmap="inferno_r",
     width=0.5,
     linewidth=0.5,
-    savename="./plots/MRK463E/EMERLIN_overplot.pdf",
+    disptype="snri",
+    savename="./plots/MRK463E/EMERLIN_snri_overplot.pdf",
 )
 C.write_to(path1="./data/MRK463E/FOC_data_EMERLIN.fits", path2="./data/MRK463E/EMERLIN_data.fits", suffix="aligned")

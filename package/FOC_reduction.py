@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 """
 Main script where are progressively added the steps for the FOC pipeline reduction.
@@ -30,7 +30,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         # from lib.deconvolve import from_file_psf
         psf = "gaussian"  # Can be user-defined as well
         # psf = from_file_psf(data_folder+psf_file)
-        psf_FWHM = 3.1
+        psf_FWHM = 1.55
         psf_scale = "px"
         psf_shape = None  # (151, 151)
         iterations = 1
@@ -42,7 +42,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     # Background estimation
     error_sub_type = "freedman-diaconis"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
     subtract_error = 1.0
-    display_bkg = True
+    display_bkg = False
 
     # Data binning
     pxsize = 0.05
@@ -51,7 +51,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Alignement
     align_center = "center"  # If None will not align the images
-    display_align = True
+    display_align = False
     display_data = False
 
     # Transmittance correction
@@ -66,10 +66,10 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     rotate_North = True
 
     #  Polarization map output
-    P_cut = 0.99  # if >=1.0 cut on the signal-to-noise else cut on the confidence level in Q, U
-    SNRi_cut = 1.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
+    P_cut = 0.999  # if >=1.0 cut on the signal-to-noise else cut on the confidence level in Q, U
+    SNRi_cut = 3.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
     flux_lim = None  # lowest and highest flux displayed on plot, defaults to bkg and maximum in cut if None
-    scale_vec = 3
+    scale_vec = 2
     step_vec = 1  # plot all vectors in the array. if step_vec = 2, then every other vector will be plotted if step_vec = 0 then all vectors are displayed at full length
 
     # Pipeline start

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 from pathlib import Path
 from sys import path as syspath
@@ -18,7 +18,7 @@ def main(infiles=None):
     from numpy.linalg import eig
 
     if infiles is None:
-        print('Usage: "python get_cdelt.py -f infiles"')
+        print('Usage: "env python3 get_cdelt.py -f infiles"')
         return 1
     prod = [["/".join(filepath.split("/")[:-1]), filepath.split("/")[-1]] for filepath in infiles]
     data_folder = prod[0][0]

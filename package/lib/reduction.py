@@ -416,12 +416,12 @@ def deconvolve_array(data_array, headers, psf="gaussian", FWHM=1.0, scale="px", 
         FWHM /= pxsize[0].min()
 
     # Define Point-Spread-Function kernel
-    if psf.lower() in ["gauss", "gaussian"]:
+    if isinstance(psf, np.ndarray) and (len(psf.shape) == 2):
+        kernel = psf
+    elif psf.lower() in ["gauss", "gaussian"]:
         if shape is None:
             shape = np.min(data_array[0].shape) - 2, np.min(data_array[0].shape) - 2
         kernel = gaussian_psf(FWHM=FWHM, shape=shape)
-    elif isinstance(psf, np.ndarray) and (len(psf.shape) == 2):
-        kernel = psf
     else:
         raise ValueError("{} is not a valid value for 'psf'".format(psf))
 
