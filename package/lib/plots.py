@@ -2192,8 +2192,7 @@ class image_lasso_selector(object):
         self.mask = np.zeros(self.img.shape[:2], dtype=bool)
         self.mask[self.indices] = True
         if hasattr(self, "cont"):
-            for coll in self.cont.collections:
-                coll.remove()
+            self.cont.remove()
         self.cont = self.ax.contour(self.mask.astype(float), levels=[0.5], colors="white", linewidths=1)
         if not self.embedded:
             self.displayed.set_data(array)
@@ -2305,11 +2304,7 @@ class slit(object):
         for p in self.pix:
             self.mask[tuple(p)] = (np.abs(np.dot(rot2D(-self.angle), p - self.rect.get_center()[::-1])) < (self.height / 2.0, self.width / 2.0)).all()
         if hasattr(self, "cont"):
-            for coll in self.cont.collections:
-                try:
-                    coll.remove()
-                except AttributeError:
-                    return
+            self.cont.remove()
         self.cont = self.ax.contour(self.mask.astype(float), levels=[0.5], colors="white", linewidths=1)
         if not self.embedded:
             self.displayed.set_data(array)
@@ -2408,11 +2403,7 @@ class aperture(object):
         x0, y0 = self.circ.center
         self.mask = np.sqrt((xx - x0) ** 2 + (yy - y0) ** 2) < self.radius
         if hasattr(self, "cont"):
-            for coll in self.cont.collections:
-                try:
-                    coll.remove()
-                except AttributeError:
-                    return
+            self.cont.remove()
         self.cont = self.ax.contour(self.mask.astype(float), levels=[0.5], colors="white", linewidths=1)
         if not self.embedded:
             self.displayed.set_data(array)
@@ -2441,7 +2432,7 @@ class pol_map(object):
         self.step_vec = step_vec
         self.scale_vec = scale_vec
         self.pa_err = pa_err
-        self.conf = PCconf(self.Q / self.I, self.U / self.I, np.sqrt(self.IQU_cov[1, 1]) / self.I, np.sqrt(self.IQU_cov[2, 2]) / self.I)
+        self.conf = PCconf(self.QN, self.UN, self.QN_ERR, self.UN_ERR)
 
         # Get data
         self.targ = self.Stokes[0].header["targname"]
@@ -2543,8 +2534,7 @@ class pol_map(object):
                 self.selected = False
                 self.region = deepcopy(self.select_instance.mask.astype(bool))
                 self.select_instance.displayed.remove()
-                for coll in self.select_instance.cont.collections:
-                    coll.remove()
+                self.select_instance.cont.remove()
                 self.select_instance.lasso.set_active(False)
                 self.set_data_mask(deepcopy(self.region))
                 self.pol_int()
@@ -2587,8 +2577,7 @@ class pol_map(object):
                 self.select_instance.update_mask()
                 self.region = deepcopy(self.select_instance.mask.astype(bool))
                 self.select_instance.displayed.remove()
-                for coll in self.select_instance.cont.collections:
-                    coll.remove()
+                self.select_instance.cont.remove()
                 self.select_instance.circ.set_visible(False)
                 self.set_data_mask(deepcopy(self.region))
                 self.pol_int()
@@ -2645,8 +2634,7 @@ class pol_map(object):
                 self.select_instance.update_mask()
                 self.region = deepcopy(self.select_instance.mask.astype(bool))
                 self.select_instance.displayed.remove()
-                for coll in self.select_instance.cont.collections:
-                    coll.remove()
+                self.select_instance.cont.remove()
                 self.select_instance.rect.set_visible(False)
                 self.set_data_mask(deepcopy(self.region))
                 self.pol_int()
@@ -2924,12 +2912,40 @@ class pol_map(object):
         return self.Stokes["I_STOKES"].data
 
     @property
+    def I_ERR(self):
+        return np.sqrt(self.Stokes["IQU_COV_MATRIX"].data[0, 0])
+
+    @property
     def Q(self):
         return self.Stokes["Q_STOKES"].data
 
     @property
+    def QN(self):
+        return self.Q / np.where(self.I > 0, self.I, np.nan)
+
+    @property
+    def Q_ERR(self):
+        return np.sqrt(self.Stokes["IQU_COV_MATRIX"].data[1, 1])
+
+    @property
+    def QN_ERR(self):
+        return self.Q_ERR / np.where(self.I > 0, self.I, np.nan)
+
+    @property
     def U(self):
         return self.Stokes["U_STOKES"].data
+
+    @property
+    def UN(self):
+        return self.U / np.where(self.I > 0, self.I, np.nan)
+
+    @property
+    def U_ERR(self):
+        return np.sqrt(self.Stokes["IQU_COV_MATRIX"].data[2, 2])
+
+    @property
+    def UN_ERR(self):
+        return self.U_ERR / np.where(self.I > 0, self.I, np.nan)
 
     @property
     def IQU_cov(self):
@@ -3368,12 +3384,7 @@ class pol_map(object):
                 )
 
         if hasattr(self, "cont"):
-            for coll in self.cont.collections:
-                try:
-                    coll.remove()
-                except AttributeError:
-                    del coll
-            del self.cont
+            self.cont.remove()
         if fig is None:
             fig = self.fig
             if ax is None:
@@ -3390,17 +3401,17 @@ class pol_map(object):
                 + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
                 + str_conf
             )
-            # self.str_cut = ""
-            self.str_cut = (
-                "\n"
-                + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                    self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
-                )
-                + "\n"
-                + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
-                + "\n"
-                + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
-            )
+            self.str_cut = ""
+            # self.str_cut = (
+            #     "\n"
+            #     + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
+            #         self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
+            #     )
+            #     + "\n"
+            #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
+            #     + "\n"
+            #     + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
+            # )
             self.an_int = ax.annotate(
                 self.str_int + self.str_cut,
                 color="white",
@@ -3426,17 +3437,17 @@ class pol_map(object):
                 + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
                 + str_conf
             )
-            # str_cut = ""
-            str_cut = (
-                "\n"
-                + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                    self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
-                )
-                + "\n"
-                + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
-                + "\n"
-                + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
-            )
+            str_cut = ""
+            # str_cut = (
+            #     "\n"
+            #     + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
+            #         self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
+            #     )
+            #     + "\n"
+            #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
+            #     + "\n"
+            #     + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
+            # )
             ax.annotate(
                 str_int + str_cut,
                 color="white",

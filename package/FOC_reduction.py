@@ -40,9 +40,9 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     display_crop = False
 
     # Background estimation
-    error_sub_type = "freedman-diaconis"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
-    subtract_error = 1.0
-    display_bkg = False
+    error_sub_type = "scott"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
+    subtract_error = 2.0
+    display_bkg = True
 
     # Data binning
     pxsize = 0.05
@@ -66,10 +66,10 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     rotate_North = True
 
     #  Polarization map output
-    P_cut = 0.999  # if >=1.0 cut on the signal-to-noise else cut on the confidence level in Q, U
-    SNRi_cut = 3.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
+    P_cut = 5  # if >=1.0 cut on the signal-to-noise else cut on the confidence level in Q, U
+    SNRi_cut = 5.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
     flux_lim = None  # lowest and highest flux displayed on plot, defaults to bkg and maximum in cut if None
-    scale_vec = 2
+    scale_vec = 3
     step_vec = 1  # plot all vectors in the array. if step_vec = 2, then every other vector will be plotted if step_vec = 0 then all vectors are displayed at full length
 
     # Pipeline start
