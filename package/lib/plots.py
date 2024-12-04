@@ -97,7 +97,7 @@ def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, pl
     plt.rcParams.update({"font.size": 10})
     nb_obs = np.max([np.sum([head["filtnam1"] == curr_pol for head in headers]) for curr_pol in ["POL0", "POL60", "POL120"]])
     shape = np.array((3, nb_obs))
-    fig, ax = plt.subplots(shape[0], shape[1], figsize=(3 * shape[1], 3 * shape[0]), layout="constrained", sharex=True, sharey=True)
+    fig, ax = plt.subplots(shape[0], shape[1], figsize=(3 * shape[1], 3 * shape[0]), layout="compressed", sharex=True, sharey=True)
     used = np.zeros(shape, dtype=bool)
     r_pol = dict(pol0=0, pol60=1, pol120=2)
     c_pol = dict(pol0=0, pol60=0, pol120=0)
@@ -317,9 +317,9 @@ def polarization_map(
         for j in range(3):
             stk_cov[i][j][np.logical_not(data_mask)] = np.nan
 
+    wcs = WCS(Stokes[0]).deepcopy()
     pivot_wav = Stokes[0].header["photplam"]
     convert_flux = Stokes[0].header["photflam"]
-    wcs = WCS(Stokes[0]).deepcopy()
 
     # Plot Stokes parameters map
     if display is None or display.lower() in ["default"]:
@@ -3275,6 +3275,7 @@ class pol_map(object):
         str_conf = ""
         if self.region is None:
             s_I = np.sqrt(self.IQU_cov[0, 0])
+            N_pix = self.I.size
             I_reg = self.I.sum()
             I_reg_err = np.sqrt(np.sum(s_I**2))
             P_reg = self.Stokes[0].header["P_int"]
@@ -3289,6 +3290,7 @@ class pol_map(object):
             s_IU = self.IQU_cov[0, 2]
             s_QU = self.IQU_cov[1, 2]
 
+            N_cut = self.cut.sum()
             I_cut = self.I[self.cut].sum()
             Q_cut = self.Q[self.cut].sum()
             U_cut = self.U[self.cut].sum()
@@ -3324,6 +3326,7 @@ class pol_map(object):
             s_IU = self.IQU_cov[0, 2]
             s_QU = self.IQU_cov[1, 2]
 
+            N_pix = self.region.sum()
             I_reg = self.I[self.region].sum()
             Q_reg = self.Q[self.region].sum()
             U_reg = self.U[self.region].sum()
@@ -3356,6 +3359,7 @@ class pol_map(object):
                 )
 
             new_cut = np.logical_and(self.region, self.cut)
+            N_cut = new_cut.sum()
             I_cut = self.I[new_cut].sum()
             Q_cut = self.Q[new_cut].sum()
             U_cut = self.U[new_cut].sum()
@@ -3385,6 +3389,7 @@ class pol_map(object):
 
         if hasattr(self, "cont"):
             self.cont.remove()
+            del self.cont
         if fig is None:
             fig = self.fig
             if ax is None:

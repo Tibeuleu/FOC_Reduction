@@ -141,6 +141,7 @@ def save_Stokes(
     header["TELESCOP"] = (header_stokes["TELESCOP"] if "TELESCOP" in list(header_stokes.keys()) else "HST", "telescope used to acquire data")
     header["INSTRUME"] = (header_stokes["INSTRUME"] if "INSTRUME" in list(header_stokes.keys()) else "FOC", "identifier for instrument used to acuire data")
     header["PHOTPLAM"] = (header_stokes["PHOTPLAM"], "Pivot Wavelength")
+    header["PHOTBW"] = (header_stokes["PHOTBW"], "RMS Bandwidth of the Filter and Detector")
     header["PHOTFLAM"] = (header_stokes["PHOTFLAM"], "Inverse Sensitivity in DN/sec/cm**2/Angst")
     header["EXPTIME"] = (header_stokes["EXPTIME"], "Total exposure time in sec")
     header["PROPOSID"] = (header_stokes["PROPOSID"], "PEP proposal identifier for observation")
