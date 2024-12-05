@@ -155,7 +155,7 @@ def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, pl
         fig.delaxes(ax[i][j])
 
     # fig.subplots_adjust(hspace=0.01, wspace=0.01, right=1.02)
-    fig.colorbar(im, ax=ax, location="right", shrink=0.75, aspect=50, pad=0.025, label=r"Flux [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+    fig.colorbar(im, ax=ax, location="right", shrink=0.75, aspect=50, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
 
     if savename is not None:
         # fig.suptitle(savename)
@@ -426,7 +426,7 @@ def polarization_map(
         im = ax.imshow(stkI * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
         fig.colorbar(im, ax=ax, aspect=30, shrink=0.75, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         levelsI = np.array([0.8, 2.0, 5.0, 10.0, 20.0, 50.0]) / 100.0 * vmax
-        print("Total flux contour levels : ", levelsI)
+        print("Flux density contour levels : ", levelsI)
         ax.contour(stkI * convert_flux, levels=levelsI, colors="grey", linewidths=0.5)
     elif display.lower() in ["pf", "pol_flux"]:
         # Display polarization flux
@@ -444,7 +444,7 @@ def polarization_map(
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         # levelsPf = np.linspace(0.0175, 0.50, 5) * pfmax
         levelsPf = np.array([1.73, 13.0, 33.0, 66.0]) / 100.0 * pfmax
-        print("Polarized flux contour levels : ", levelsPf)
+        print("Polarized flux density contour levels : ", levelsPf)
         ax.contour(stkI * convert_flux * pol, levels=levelsPf, colors="grey", linewidths=0.5)
     elif display.lower() in ["p", "pol", "pol_deg"]:
         # Display polarization degree map
