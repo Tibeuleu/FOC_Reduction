@@ -1,8 +1,13 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 """
 Main script where are progressively added the steps for the FOC pipeline reduction.
 """
+
+from pathlib import Path
+from sys import path as syspath
+
+syspath.append(str(Path(__file__).parent.parent))
 
 # Project libraries
 from copy import deepcopy
@@ -25,7 +30,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         # from lib.deconvolve import from_file_psf
         psf = "gaussian"  # Can be user-defined as well
         # psf = from_file_psf(data_folder+psf_file)
-        psf_FWHM = 3.1
+        psf_FWHM = 1.55
         psf_scale = "px"
         psf_shape = None  # (151, 151)
         iterations = 1
@@ -35,13 +40,13 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     display_crop = False
 
     # Background estimation
-    error_sub_type = "freedman-diaconis"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
-    subtract_error = 1.0
-    display_bkg = False
+    error_sub_type = "scott"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
+    subtract_error = 2.0
+    display_bkg = True
 
     # Data binning
-    pxsize = 2
-    pxscale = "px"  # pixel, arcsec or full
+    pxsize = 0.05
+    pxscale = "arcsec"  # pixel, arcsec or full
     rebin_operation = "sum"  # sum or average
 
     # Alignement
@@ -54,17 +59,17 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Smoothing
     smoothing_function = "combine"  # gaussian_after, weighted_gaussian_after, gaussian, weighted_gaussian or combine
-    smoothing_FWHM = 2.0    # If None, no smoothing is done
-    smoothing_scale = "px"  # pixel or arcsec
+    smoothing_FWHM = 0.075  # If None, no smoothing is done
+    smoothing_scale = "arcsec"  # pixel or arcsec
 
     # Rotation
     rotate_North = True
 
     #  Polarization map output
-    SNRp_cut = 3.0  # P measurments with SNR>3
-    SNRi_cut = 1.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
+    P_cut = 5  # if >=1.0 cut on the signal-to-noise else cut on the confidence level in Q, U
+    SNRi_cut = 5.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
     flux_lim = None  # lowest and highest flux displayed on plot, defaults to bkg and maximum in cut if None
-    scale_vec = 5
+    scale_vec = 3
     step_vec = 1  # plot all vectors in the array. if step_vec = 2, then every other vector will be plotted if step_vec = 0 then all vectors are displayed at full length
 
     # Pipeline start
@@ -171,6 +176,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.plot_obs(
             data_array,
             headers,
+            shifts=shifts,
             savename="_".join([figname, str(align_center)]),
             plots_folder=plots_folder,
             norm=LogNorm(vmin=data_array[data_array > 0.0].min() * headers[0]["photflam"], vmax=data_array[data_array > 0.0].max() * headers[0]["photflam"]),
@@ -292,7 +298,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         proj_plots.polarization_map(
             deepcopy(Stokes_hdul),
             data_mask,
-            SNRp_cut=SNRp_cut,
+            P_cut=P_cut,
             SNRi_cut=SNRi_cut,
             flux_lim=flux_lim,
             step_vec=step_vec,
@@ -300,108 +306,31 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
             savename="_".join([figname]),
             plots_folder=plots_folder,
         )
-        proj_plots.polarization_map(
-            deepcopy(Stokes_hdul),
-            data_mask,
-            SNRp_cut=SNRp_cut,
-            SNRi_cut=SNRi_cut,
-            flux_lim=flux_lim,
-            step_vec=step_vec,
-            scale_vec=scale_vec,
-            savename="_".join([figname, "I"]),
-            plots_folder=plots_folder,
-            display="Intensity",
-        )
-        proj_plots.polarization_map(
-            deepcopy(Stokes_hdul),
-            data_mask,
-            SNRp_cut=SNRp_cut,
-            SNRi_cut=SNRi_cut,
-            flux_lim=flux_lim,
-            step_vec=step_vec,
-            scale_vec=scale_vec,
-            savename="_".join([figname, "P_flux"]),
-            plots_folder=plots_folder,
-            display="Pol_Flux",
-        )
-        proj_plots.polarization_map(
-            deepcopy(Stokes_hdul),
-            data_mask,
-            SNRp_cut=SNRp_cut,
-            SNRi_cut=SNRi_cut,
-            flux_lim=flux_lim,
-            step_vec=step_vec,
-            scale_vec=scale_vec,
-            savename="_".join([figname, "P"]),
-            plots_folder=plots_folder,
-            display="Pol_deg",
-        )
-        proj_plots.polarization_map(
-            deepcopy(Stokes_hdul),
-            data_mask,
-            SNRp_cut=SNRp_cut,
-            SNRi_cut=SNRi_cut,
-            flux_lim=flux_lim,
-            step_vec=step_vec,
-            scale_vec=scale_vec,
-            savename="_".join([figname, "PA"]),
-            plots_folder=plots_folder,
-            display="Pol_ang",
-        )
-        proj_plots.polarization_map(
-            deepcopy(Stokes_hdul),
-            data_mask,
-            SNRp_cut=SNRp_cut,
-            SNRi_cut=SNRi_cut,
-            flux_lim=flux_lim,
-            step_vec=step_vec,
-            scale_vec=scale_vec,
-            savename="_".join([figname, "I_err"]),
-            plots_folder=plots_folder,
-            display="I_err",
-        )
-        proj_plots.polarization_map(
-            deepcopy(Stokes_hdul),
-            data_mask,
-            SNRp_cut=SNRp_cut,
-            SNRi_cut=SNRi_cut,
-            flux_lim=flux_lim,
-            step_vec=step_vec,
-            scale_vec=scale_vec,
-            savename="_".join([figname, "P_err"]),
-            plots_folder=plots_folder,
-            display="Pol_deg_err",
-        )
-        proj_plots.polarization_map(
-            deepcopy(Stokes_hdul),
-            data_mask,
-            SNRp_cut=SNRp_cut,
-            SNRi_cut=SNRi_cut,
-            flux_lim=flux_lim,
-            step_vec=step_vec,
-            scale_vec=scale_vec,
-            savename="_".join([figname, "SNRi"]),
-            plots_folder=plots_folder,
-            display="SNRi",
-        )
-        proj_plots.polarization_map(
-            deepcopy(Stokes_hdul),
-            data_mask,
-            SNRp_cut=SNRp_cut,
-            SNRi_cut=SNRi_cut,
-            flux_lim=flux_lim,
-            step_vec=step_vec,
-            scale_vec=scale_vec,
-            savename="_".join([figname, "SNRp"]),
-            plots_folder=plots_folder,
-            display="SNRp",
-        )
+        for figtype, figsuffix in zip(
+            ["Intensity", "Pol_flux", "Pol_deg", "Pol_ang", "I_err", "P_err", "SNRi", "SNRp", "confp"],
+            ["I", "P_flux", "P", "PA", "I_err", "P_err", "SNRi", "SNRp", "confP"],
+        ):
+            try:
+                proj_plots.polarization_map(
+                    deepcopy(Stokes_hdul),
+                    data_mask,
+                    P_cut=P_cut,
+                    SNRi_cut=SNRi_cut,
+                    flux_lim=flux_lim,
+                    step_vec=step_vec,
+                    scale_vec=scale_vec,
+                    savename="_".join([figname, figsuffix]),
+                    plots_folder=plots_folder,
+                    display=figtype,
+                )
+            except ValueError:
+                pass
     elif not interactive:
         proj_plots.polarization_map(
-            deepcopy(Stokes_hdul), data_mask, SNRp_cut=SNRp_cut, SNRi_cut=SNRi_cut, savename=figname, plots_folder=plots_folder, display="integrate"
+            deepcopy(Stokes_hdul), data_mask, P_cut=P_cut, SNRi_cut=SNRi_cut, savename=figname, plots_folder=plots_folder, display="integrate"
         )
     elif pxscale.lower() not in ["full", "integrate"]:
-        proj_plots.pol_map(Stokes_hdul, SNRp_cut=SNRp_cut, SNRi_cut=SNRi_cut, flux_lim=flux_lim)
+        proj_plots.pol_map(Stokes_hdul, P_cut=P_cut, SNRi_cut=SNRi_cut, step_vec=step_vec, scale_vec=scale_vec, flux_lim=flux_lim)
 
     return outfiles
 

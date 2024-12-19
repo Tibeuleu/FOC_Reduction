@@ -217,9 +217,9 @@ def bin_ndarray(ndarray, new_shape, operation="sum"):
             elif operation.lower() in ["mean", "average", "avg"]:
                 ndarray = ndarray.mean(-1 * (i + 1))
     else:
-        row_comp = np.mat(get_row_compressor(ndarray.shape[0], new_shape[0], operation))
-        col_comp = np.mat(get_column_compressor(ndarray.shape[1], new_shape[1], operation))
-        ndarray = np.array(row_comp * np.mat(ndarray) * col_comp)
+        row_comp = np.asmatrix(get_row_compressor(ndarray.shape[0], new_shape[0], operation))
+        col_comp = np.asmatrix(get_column_compressor(ndarray.shape[1], new_shape[1], operation))
+        ndarray = np.array(row_comp * np.asmatrix(ndarray) * col_comp)
 
     return ndarray
 
@@ -416,12 +416,12 @@ def deconvolve_array(data_array, headers, psf="gaussian", FWHM=1.0, scale="px", 
         FWHM /= pxsize[0].min()
 
     # Define Point-Spread-Function kernel
-    if psf.lower() in ["gauss", "gaussian"]:
+    if isinstance(psf, np.ndarray) and (len(psf.shape) == 2):
+        kernel = psf
+    elif psf.lower() in ["gauss", "gaussian"]:
         if shape is None:
             shape = np.min(data_array[0].shape) - 2, np.min(data_array[0].shape) - 2
         kernel = gaussian_psf(FWHM=FWHM, shape=shape)
-    elif isinstance(psf, np.ndarray) and (len(psf.shape) == 2):
-        kernel = psf
     else:
         raise ValueError("{} is not a valid value for 'psf'".format(psf))
 
@@ -676,6 +676,7 @@ def rebin_array(data_array, error_array, headers, pxsize=2, scale="px", operatio
         nw.wcs.crpix /= Dxy
         nw.array_shape = new_shape
         new_header["NAXIS1"], new_header["NAXIS2"] = nw.array_shape
+        new_header["PHOTFLAM"] = header["PHOTFLAM"] * (Dxy[0] * Dxy[1])
         for key, val in nw.to_header().items():
             new_header.set(key, val)
         new_header["SAMPLING"] = (str(pxsize) + scale, "Resampling performed during reduction")
