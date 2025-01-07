@@ -51,15 +51,16 @@ class specpol(object):
     """
 
     def __init__(self, other=None):
-        if isinstance(other, specpol):
+        if isinstance(other, __class__):
             # Copy constructor
+            self.hd = deepcopy(other.hd)
             self.wav = deepcopy(other.wav)
             self.wav_err = deepcopy(other.wav_err)
             self.I = deepcopy(other.I)
             self.Q = deepcopy(other.Q)
             self.U = deepcopy(other.U)
             self.V = deepcopy(other.V)
-            self.IQU_cov = deepcopy(other.IQU_cov)
+            self.IQUV_cov = deepcopy(other.IQUV_cov)
         else:
             # Initialise to zero
             if isinstance(other, int):
@@ -72,29 +73,52 @@ class specpol(object):
         """
         Set all values to zero.
         """
+        self.hd = dict([])
         self.wav = np.zeros(n)
         self.wav_err = np.zeros((n, 2))
         self.I = np.zeros(n)
         self.Q = np.zeros(n)
         self.U = np.zeros(n)
         self.V = np.zeros(n)
-        self.IQU_cov = np.zeros((4, 4, n))
+        self.IQUV_cov = np.zeros((4, 4, n))
+
+    @property
+    def wav_rest(self, z=None):
+        if z is None and "REDSHIFT" not in self.hd.keys():
+            from astroquery.ipac.ned import Ned
+
+            z = Ned.query_object(self.hd["TARGNAME"])["Redshift"][0]
+            self.hd["REDSHIFT"] = z
+        elif z is None:
+            z = self.hd["REDSHIFT"]
+        return self.wav / (z + 1)
+
+    @property
+    def wav_rest_err(self, z=None):
+        if z is None and "REDSHIFT" not in self.hd.keys():
+            from astroquery.ipac.ned import Ned
+
+            z = Ned.query_object(self.hd["TARGNAME"])["Redshift"][0]
+            self.hd["REDSHIFT"] = z
+        elif z is None:
+            z = self.hd["REDSHIFT"]
+        return self.wav_err / (z + 1)
 
     @property
     def I_err(self):
-        return np.sqrt(self.IQU_cov[0][0])
+        return np.sqrt(self.IQUV_cov[0][0])
 
     @property
     def Q_err(self):
-        return np.sqrt(self.IQU_cov[1][1])
+        return np.sqrt(self.IQUV_cov[1][1])
 
     @property
     def U_err(self):
-        return np.sqrt(self.IQU_cov[2][2])
+        return np.sqrt(self.IQUV_cov[2][2])
 
     @property
     def V_err(self):
-        return np.sqrt(self.IQU_cov[3][3])
+        return np.sqrt(self.IQUV_cov[3][3])
 
     @property
     def QN(self):
@@ -165,13 +189,12 @@ class specpol(object):
             ]
         )
         self.I, self.Q, self.U, self.V = np.dot(mrot, np.array([self.I, self.Q, self.U, self.V]))
-        self.IQU_cov = np.dot(mrot, np.dot(self.IQU_cov.T, mrot.T).T)
+        self.IQUV_cov = np.dot(mrot, np.dot(self.IQUV_cov.T, mrot.T).T)
 
-    def bin_size(self, size):
+    def bin(self, bin_edges):
         """
-        Rebin spectra to selected bin size in Angstrom.
+        Rebin spectra to given list of bin edges.
         """
-        bin_edges = np.arange(np.floor(self.wav.min()), np.ceil(self.wav.max()), size)
         in_bin = np.digitize(self.wav, bin_edges) - 1
         spec_b = specpol(bin_edges.shape[0] - 1)
         for i in range(bin_edges.shape[0] - 1):
@@ -183,10 +206,21 @@ class specpol(object):
             spec_b.U[i] = np.sum(self.U[in_bin == i])
             spec_b.V[i] = np.sum(self.V[in_bin == i])
             for m in range(4):
-                spec_b.IQU_cov[m][m][i] = np.sum(self.IQU_cov[m][m][in_bin == i])
+                spec_b.IQUV_cov[m][m][i] = np.sum(self.IQUV_cov[m][m][in_bin == i])
                 for n in [k for k in range(4) if k != m]:
-                    spec_b.IQU_cov[m][n][i] = np.sqrt(np.sum(self.IQU_cov[m][n][in_bin == i] ** 2))
+                    spec_b.IQUV_cov[m][n][i] = np.sqrt(np.sum(self.IQUV_cov[m][n][in_bin == i] ** 2))
+        spec_b.hd = deepcopy(self.hd)
+        spec_b.hd["NAXIS1"] = bin_edges.shape[0] - 1
+        spec_b.hd["DATAMIN"], spec_b.hd["DATAMAX"] = spec_b.I.min(), spec_b.I.max()
+        spec_b.hd["MINWAV"], spec_b.hd["MAXWAV"] = spec_b.wav.min(), spec_b.wav.max()
         return spec_b
+
+    def bin_size(self, size):
+        """
+        Rebin spectra to selected bin size in Angstrom.
+        """
+        bin_edges = np.arange(np.floor(self.wav.min()), np.ceil(self.wav.max()), size)
+        return self.bin(bin_edges)
 
     def dump_txt(self, filename, output_dir=""):
         """
@@ -196,7 +230,7 @@ class specpol(object):
         np.savetxt(join_path(output_dir, filename + ".txt"), data_dump)
         return join_path(output_dir, filename)
 
-    def plot(self, fig=None, ax=None, savename=None, plots_folder=""):
+    def plot(self, fig=None, ax=None, rest=True, savename=None, plots_folder=""):
         """
         Display current spectra.
         """
@@ -212,27 +246,33 @@ class specpol(object):
             else:
                 self.fig = fig
                 self.ax = ax
-        if isinstance(ax, np.ndarray):
+        if isinstance(self.ax, np.ndarray):
             ax1, ax2 = self.ax[:2]
         else:
             ax1 = self.ax
 
+        if rest:
+            wav, wav_err = self.wav_rest, self.wav_rest_err
+            rest_str = "Rest "
+        else:
+            wav, wav_err = self.wav, self.wav_rest
+            rest_str = ""
         # Display flux and polarized flux on first ax
-        ax1.set_xlabel(r"Wavelength [$\AA$]")
-        ax1.errorbar(self.wav, self.I, xerr=self.wav_err.T, yerr=self.I_err, color="k", fmt=".", label="I")
-        ax1.errorbar(self.wav, self.PF, xerr=self.wav_err.T, yerr=self.PF_err, color="b", fmt=".", label="PF")
+        ax1.set_xlabel(rest_str + r"Wavelength [$\AA$]")
+        ax1.errorbar(wav, self.I, xerr=wav_err.T, yerr=self.I_err, color="k", fmt=".", label="I")
+        ax1.errorbar(wav, self.PF, xerr=wav_err.T, yerr=self.PF_err, color="b", fmt=".", label="PF")
         ax1.set_ylabel(r"F$_\lambda$ [erg s$^{-1}$ cm$^{-2} \AA^{-1}$]")
         ax1.legend(ncols=2, loc=1)
 
-        if isinstance(ax, np.ndarray):
+        if isinstance(self.ax, np.ndarray):
             # When given 2 axes, display P and PA on second
-            ax2.set_xlabel(r"Wavelength [$\AA$]")
-            ax2.errorbar(self.wav, self.P, xerr=self.wav_err.T, yerr=self.P_err, color="b", fmt=".", label="P")
+            ax2.set_xlabel(rest_str + r"Wavelength [$\AA$]")
+            ax2.errorbar(wav, self.P, xerr=wav_err.T, yerr=self.P_err, color="b", fmt=".", label="P")
             ax2.set_ylim([0.0, 1.0])
             ax2.set_ylabel(r"P", color="b")
             ax2.tick_params(axis="y", color="b", labelcolor="b")
             ax22 = ax2.twinx()
-            ax22.errorbar(self.wav, self.PA, xerr=self.wav_err.T, yerr=self.PA_err, color="r", fmt=".", label="PA [°]")
+            ax22.errorbar(wav, self.PA, xerr=wav_err.T, yerr=self.PA_err, color="r", fmt=".", label="PA [°]")
             ax22.set_ylim([0.0, 180.0])
             ax22.set_ylabel(r"PA", color="r")
             ax22.tick_params(axis="y", color="r", labelcolor="r")
@@ -248,6 +288,44 @@ class specpol(object):
         else:
             return self.ax
 
+    def __add__(self, other):
+        """
+        Spectra addition, if not same binning default to self bins.
+        """
+        spec_a = specpol(self)
+        if np.all(self.wav == other.wav):
+            spec_b = other
+        else:
+            bin_edges = np.zeros(spec_a.wav.shape[0] + 1)
+            bin_edges[:-1], bin_edges[-1] = spec_a.wav - spec_a.wav_err[:, 0], spec_a.wav[-1] + spec_a.wav_err[-1:1]
+            spec_b = other.bin(bin_edges=bin_edges)
+
+        spec_a.I += deepcopy(spec_b.I)
+        spec_a.Q += deepcopy(spec_b.Q)
+        spec_a.U += deepcopy(spec_b.U)
+        spec_a.V += deepcopy(spec_b.V)
+        spec_a.IQUV_cov += deepcopy(spec_b.IQUV_cov)
+
+        spec_a.hd["DATAMIN"], spec_a.hd["DATAMAX"] = spec_a.I.min(), spec_a.I.max()
+        spec_a.hd["EXPTIME"] += spec_b.hd["EXPTIME"]
+        spec_a.hd["ROOTNAME"] += "+" + spec_b.hd["ROOTNAME"]
+        return spec_a
+
+    def __deepcopy__(self, memo={}):
+        spec = specpol(self.wav.shape[0])
+        spec.__dict__.update(self.__dict__)
+
+        spec.hd = deepcopy(self.hd, memo)
+        spec.wav = deepcopy(self.wav, memo)
+        spec.wav_err = deepcopy(self.wav_err, memo)
+        spec.I = deepcopy(self.I, memo)
+        spec.Q = deepcopy(self.Q, memo)
+        spec.U = deepcopy(self.U, memo)
+        spec.V = deepcopy(self.V, memo)
+        spec.IQUV_cov = deepcopy(self.IQUV_cov, memo)
+
+        return spec
+
 
 class FOSspecpol(specpol):
     """
@@ -256,41 +334,99 @@ class FOSspecpol(specpol):
 
     def __init__(self, stokes, data_folder=""):
         """
-        Initialise object from fits filename or hdulist.
+        Initialise object from fits filename, fits hdulist or copy.
+        """
+        if isinstance(stokes, __class__):
+            # Copy constructor
+            self.rootname = deepcopy(stokes.rootname)
+            self.hd = deepcopy(stokes.hd)
+            self.wav = deepcopy(stokes.wav)
+            self.wav_err = deepcopy(stokes.wav_err)
+            self.I = deepcopy(stokes.I)
+            self.Q = deepcopy(stokes.Q)
+            self.U = deepcopy(stokes.U)
+            self.V = deepcopy(stokes.V)
+            self.IQUV_cov = deepcopy(stokes.IQUV_cov)
+            self.P_fos = deepcopy(stokes.P_fos)
+            self.P_fos_err = deepcopy(stokes.P_fos_err)
+            self.PC_fos = deepcopy(stokes.PC_fos)
+            self.PC_fos_err = deepcopy(stokes.PC_fos_err)
+            self.PA_fos = deepcopy(stokes.PA_fos)
+            self.PA_fos_err = deepcopy(stokes.PA_fos_err)
+            self.subspec = {}
+            for name in ["PASS1", "PASS2", "PASS12", "PASS12corr"]:
+                spec = deepcopy(stokes.subspec[name])
+                self.subspec[name] = spec
+        elif stokes is None or isinstance(stokes, int):
+            self.zero(n=stokes)
+        else:
+            self.from_file(stokes, data_folder=data_folder)
+
+    @classmethod
+    def zero(self, n=1):
+        """
+        Set all values to zero.
+        """
+        self.rootname = ""
+        self.hd = dict([])
+        self.wav = np.zeros((4, n))
+        self.wav_err = np.zeros((4, n, 2))
+        self.I = np.zeros((4, n))
+        self.Q = np.zeros((4, n))
+        self.U = np.zeros((4, n))
+        self.V = np.zeros((4, n))
+        self.IQUV_cov = np.zeros((4, 4, 4, n))
+
+        self.subspec = {}
+        for i, name in enumerate(["PASS1", "PASS2", "PASS12", "PASS12corr"]):
+            spec = specpol(n)
+            spec.hd, spec.wav, spec.wav_err, spec.I, spec.Q, spec.U, spec.V = self.hd, self.wav[i], self.wav_err[i], self.I[i], self.Q[i], self.U[i], self.V[i]
+            spec.IQUV_cov = self.IQUV_cov[:, :, i, :]
+            self.subspec[name] = spec
+
+        self.P_fos = np.zeros(self.I.shape)
+        self.P_fos_err = np.zeros(self.I.shape)
+        self.PC_fos = np.zeros(self.I.shape)
+        self.PC_fos_err = np.zeros(self.I.shape)
+        self.PA_fos = np.zeros(self.I.shape)
+        self.PA_fos_err = np.zeros(self.I.shape)
+
+    def from_file(self, stokes, data_folder=""):
+        """
+        Initialise object from fits file or hdulist.
         """
         if isinstance(stokes, str):
-            self.file_root = stokes.split("_")[0]
-            self.hd = getheader(join_path(data_folder, self.file_root + "_c0f.fits"))
-            wav = getdata(join_path(data_folder, self.file_root + "_c0f.fits"))
-            stokes = getdata(join_path(data_folder, self.file_root + "_c3f.fits"))
+            self.rootname = stokes.split("_")[0]
+            self.hd = dict(getheader(join_path(data_folder, self.rootname + "_c0f.fits")))
+            wav = getdata(join_path(data_folder, self.rootname + "_c0f.fits"))
+            stokes = getdata(join_path(data_folder, self.rootname + "_c3f.fits"))
         elif isinstance(stokes, hdu.hdulist.HDUList):
-            self.hd = stokes.header
-            self.file_root = self.hd["FILENAME"].split("_")[0]
-            wav = getdata(join_path(data_folder, self.file_root + "_c0f"))
+            self.hd = dict(stokes.header)
+            self.rootname = self.hd["FILENAME"].split("_")[0]
+            wav = getdata(join_path(data_folder, self.rootname + "_c0f"))
             stokes = stokes.data
         else:
             raise ValueError("Input must be a path to a fits file or an HDUlist")
-
         self.wav = np.concat((wav[0:2, :], wav[0].reshape(1, wav.shape[1]), wav[0].reshape(1, wav.shape[1])), axis=0)
         self.wav_err = np.zeros((self.wav.shape[0], self.wav.shape[1], 2))
 
-        self.IQU_cov = np.zeros((4, 4, self.wav.shape[0], self.wav.shape[1]))
+        self.IQUV_cov = np.zeros((4, 4, self.wav.shape[0], self.wav.shape[1]))
 
         self.I = stokes[0::14]
-        self.IQU_cov[0, 0] = stokes[4::14] ** 2
+        self.IQUV_cov[0, 0] = stokes[4::14] ** 2
         self.Q = stokes[1::14]
-        self.IQU_cov[1, 1] = stokes[5::14] ** 2
+        self.IQUV_cov[1, 1] = stokes[5::14] ** 2
         self.U = stokes[2::14]
-        self.IQU_cov[2, 2] = stokes[6::14] ** 2
+        self.IQUV_cov[2, 2] = stokes[6::14] ** 2
         self.V = stokes[3::14]
-        self.IQU_cov[3, 3] = stokes[7::14] ** 2
+        self.IQUV_cov[3, 3] = stokes[7::14] ** 2
 
         self.subspec = {}
         for i, name in enumerate(["PASS1", "PASS2", "PASS12", "PASS12corr"]):
             spec = specpol(self.wav[i].shape[0])
-            spec.wav, spec.wav_err, spec.I, spec.Q, spec.U, spec.V = self.wav[i], self.wav_err[i], self.I[i], self.Q[i], self.U[i], self.V[i]
-            spec.IQU_cov = self.IQU_cov[:, :, i, :]
-            spec.rotate((i != 3) * self.hd["PA_APER"])
+            spec.hd, spec.wav, spec.wav_err, spec.I, spec.Q, spec.U, spec.V = self.hd, self.wav[i], self.wav_err[i], self.I[i], self.Q[i], self.U[i], self.V[i]
+            spec.IQUV_cov = self.IQUV_cov[:, :, i, :]
+            spec.rotate(-(name[-4:] != "corr") * spec.hd["PA_APER"])
             self.subspec[name] = spec
 
         self.P_fos = stokes[8::14]
@@ -301,12 +437,6 @@ class FOSspecpol(specpol):
             np.degrees(stokes[10::14]) + np.concat((np.ones((3, stokes.shape[1])), np.zeros((1, stokes.shape[1]))), axis=0) * self.hd["PA_APER"]
         )
         self.PA_fos_err = princ_angle(np.degrees(stokes[13::14]))
-
-    def __del__(self):
-        if hasattr(self, "ax"):
-            del self.ax
-        if hasattr(self, "fig"):
-            del self.fig
 
     def dump_txt(self, filename, spec_list=None, output_dir=""):
         """
@@ -319,7 +449,7 @@ class FOSspecpol(specpol):
             outfiles.append(spec_list[name].dump_txt(filename="_".join([filename, name]), output_dir=output_dir))
         return outfiles
 
-    def plot(self, spec_list=None, savename=None, plots_folder="", fos=False):
+    def plot(self, spec_list=None, rest=True, savename=None, plots_folder="", fos=False):
         """
         Display current spectra in single figure.
         """
@@ -336,14 +466,20 @@ class FOSspecpol(specpol):
         ):
             self.ax[i][0].set_title(title)
             if fos:
-                self.ax[i][0] = spec_list[name].plot(ax=self.ax[i][0])
-                self.ax[i][1].set_xlabel(r"Wavelength [$\AA$]")
-                self.ax[i][1].errorbar(self.wav[i], self.P_fos[i], xerr=self.wav_err[i].T, yerr=self.P_fos_err[i], color="b", fmt=".", label="P_fos")
+                if rest:
+                    wav, wav_err = self.wav_rest, self.wav_rest_err
+                    rest_str = "Rest "
+                else:
+                    wav, wav_err = self.wav, self.wav_rest
+                    rest_str = ""
+                self.ax[i][0] = spec_list[name].plot(ax=self.ax[i][0], rest=rest)
+                self.ax[i][1].set_xlabel(rest_str + r"Wavelength [$\AA$]")
+                self.ax[i][1].errorbar(wav[i], self.P_fos[i], xerr=wav_err[i].T, yerr=self.P_fos_err[i], color="b", fmt=".", label="P_fos")
                 self.ax[i][1].set_ylim([0.0, 1.0])
                 self.ax[i][1].set_ylabel(r"P", color="b")
                 self.ax[i][1].tick_params(axis="y", color="b", labelcolor="b")
                 ax22 = self.ax[i][1].twinx()
-                ax22.errorbar(self.wav[i], self.PA_fos[i], xerr=self.wav_err[i].T, yerr=self.PA_fos_err[i], color="r", fmt=".", label="PA_fos [°]")
+                ax22.errorbar(wav[i], self.PA_fos[i], xerr=wav_err[i].T, yerr=self.PA_fos_err[i], color="r", fmt=".", label="PA_fos [°]")
                 ax22.set_ylim([0.0, 180.0])
                 ax22.set_ylabel(r"PA", color="r")
                 ax22.tick_params(axis="y", color="r", labelcolor="r")
@@ -354,7 +490,7 @@ class FOSspecpol(specpol):
                 self.ax[i] = spec_list[name].plot(ax=self.ax[i])
         self.ax[0][0].set_ylim(ymin=0.0)
 
-        self.fig.suptitle("_".join([self.hd["TARGNAME"], str(self.hd["PROPOSID"]), self.hd["FILENAME"], self.hd["APER_ID"]]))
+        self.fig.suptitle("_".join([self.hd["TARGNAME"], str(self.hd["PROPOSID"]), self.hd["ROOTNAME"], self.hd["APER_ID"]]))
         if savename is not None:
             self.fig.savefig(join_path(plots_folder, savename + ".pdf"), dpi=300, bbox_inches="tight")
             outfiles.append(join_path(plots_folder, savename + ".pdf"))
@@ -370,6 +506,49 @@ class FOSspecpol(specpol):
             for name in ["PASS1", "PASS2", "PASS12", "PASS12corr"]:
                 self.subspec[key][name] = self.subspec[name].bin_size(size)
         return self.subspec[key]
+
+    def __add__(self, other):
+        """
+        Spectra addition, if not same binning default to self bins.
+        """
+        spec_a = FOSspecpol(self)
+        if np.all(self.wav == other.wav):
+            spec_b = other
+        else:
+            bin_edges = np.zeros(spec_a.wav.shape[0] + 1)
+            bin_edges[:-1], bin_edges[-1] = spec_a.wav - spec_a.wav_err[:, 0], spec_a.wav[-1] + spec_a.wav_err[-1:1]
+            spec_b = other.bin(bin_edges=bin_edges)
+
+        spec_a.I += deepcopy(spec_b.I)
+        spec_a.Q += deepcopy(spec_b.Q)
+        spec_a.U += deepcopy(spec_b.U)
+        spec_a.V += deepcopy(spec_b.V)
+        spec_a.IQUV_cov += deepcopy(spec_b.IQUV_cov)
+        for name in ["PASS1", "PASS2", "PASS12", "PASS12corr"]:
+            spec_a.subspec[name] += deepcopy(spec_b.subspec[name])
+            spec_a.subspec[name].hd["DATAMIN"], spec_a.subspec[name].hd["DATAMAX"] = spec_a.subspec[name].I.min(), spec_a.subspec[name].I.max()
+            spec_a.subspec[name].hd["EXPTIME"] += spec_b.subspec[name].hd["EXPTIME"]
+            spec_a.subspec[name].hd["ROOTNAME"] += "+" + spec_b.subspec[name].hd["ROOTNAME"]
+
+        spec_a.hd["DATAMIN"], spec_a.hd["DATAMAX"] = spec_a.I.min(), spec_a.I.max()
+        spec_a.hd["EXPTIME"] += spec_b.hd["EXPTIME"]
+        spec_a.hd["ROOTNAME"] += "+" + spec_b.hd["ROOTNAME"]
+        return spec_a
+
+    def __deepcopy__(self, memo):
+        spec = FOSspecpol(self.wav.shape[0])
+        spec.__dict__.update(self.__dict__)
+
+        for key in self.subspec.keys():
+            spec.subspec[key] = deepcopy(self.subspec[key])
+
+        return spec
+
+    def __del__(self):
+        if hasattr(self, "ax"):
+            del self.ax
+        if hasattr(self, "fig"):
+            del self.fig
 
 
 def main(infiles, bin_size=None, output_dir=None):
@@ -394,19 +573,35 @@ def main(infiles, bin_size=None, output_dir=None):
     infiles = [p[1] for p in prod]
 
     roots = np.unique([file.split("_")[0] for file in infiles])
-    for file_root in roots:
-        print(file_root)
-        spec = FOSspecpol(file_root, data_folder)
-        filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), spec.file_root, spec.hd["APER_ID"]])
+    aper = dict([])
+    for rootname in roots:
+        print(rootname)
+        spec = FOSspecpol(rootname, data_folder)
+        filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), spec.rootname, spec.hd["APER_ID"]])
         if bin_size is not None:
             key = "{0:.2f}bin".format(bin_size)
             spec.bin_size(bin_size)
             outfiles += spec.dump_txt("_".join([filename, key]), spec_list=spec.subspec[key], output_dir=output_dir)
             outfiles += spec.plot(savename="_".join([filename, key]), spec_list=spec.subspec[key], plots_folder=plots_folder)
+            if hasattr(aper, spec.hd["APER_ID"]):
+                aper[spec.hd["APER_ID"]].append(spec.subspec[key]["PASS12corr"])
+            else:
+                aper[spec.hd["APER_ID"]] = [spec.subspec[key]["PASS12corr"]]
         else:
             outfiles += spec.dump_txt(filename, output_dir=output_dir)
             outfiles += spec.plot(savename=filename, plots_folder=plots_folder)
-        del spec
+            if hasattr(aper, spec.hd["APER_ID"]):
+                aper[spec.hd["APER_ID"]].append(spec.subspec["PASS12corr"])
+            else:
+                aper[spec.hd["APER_ID"]] = [spec.subspec["PASS12corr"]]
+    plt.close("all")
+    for key in aper.keys():
+        filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), "SUM"])
+        if bin_size is not None:
+            filename += "_{0:.2f}bin".format(bin_size)
+        spec = np.sum(aper[key])
+        outfiles.append(spec.dump_txt("_".join([filename, key]), output_dir=output_dir))
+        outfiles.append(spec.plot(savename="_".join([filename, key]), plots_folder=plots_folder)[2])
     plt.show()
 
     return outfiles
