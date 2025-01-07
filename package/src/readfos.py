@@ -230,13 +230,14 @@ class specpol(object):
         np.savetxt(join_path(output_dir, filename + ".txt"), data_dump)
         return join_path(output_dir, filename)
 
-    def plot(self, fig=None, ax=None, rest=True, savename=None, plots_folder=""):
+    def plot(self, fig=None, ax=None, rest=False, savename=None, plots_folder=""):
         """
         Display current spectra.
         """
         if fig is None:
             if ax is None:
                 self.fig, self.ax = plt.subplots(1, 2, sharex=True, figsize=(20, 5), layout="constrained")
+                self.fig.suptitle("_".join([self.hd["TARGNAME"], str(self.hd["PROPOSID"]), self.hd["ROOTNAME"], self.hd["APER_ID"]]))
             else:
                 self.ax = ax
         else:
@@ -255,13 +256,14 @@ class specpol(object):
             wav, wav_err = self.wav_rest, self.wav_rest_err
             rest_str = "Rest "
         else:
-            wav, wav_err = self.wav, self.wav_rest
+            wav, wav_err = self.wav, self.wav_err
             rest_str = ""
         # Display flux and polarized flux on first ax
         ax1.set_xlabel(rest_str + r"Wavelength [$\AA$]")
         ax1.errorbar(wav, self.I, xerr=wav_err.T, yerr=self.I_err, color="k", fmt=".", label="I")
         ax1.errorbar(wav, self.PF, xerr=wav_err.T, yerr=self.PF_err, color="b", fmt=".", label="PF")
         ax1.set_ylabel(r"F$_\lambda$ [erg s$^{-1}$ cm$^{-2} \AA^{-1}$]")
+        ax1.set_ylim(ymin=0.0)
         ax1.legend(ncols=2, loc=1)
 
         if isinstance(self.ax, np.ndarray):
@@ -308,7 +310,8 @@ class specpol(object):
 
         spec_a.hd["DATAMIN"], spec_a.hd["DATAMAX"] = spec_a.I.min(), spec_a.I.max()
         spec_a.hd["EXPTIME"] += spec_b.hd["EXPTIME"]
-        spec_a.hd["ROOTNAME"] += "+" + spec_b.hd["ROOTNAME"]
+        rootnames = [spec_a.hd["ROOTNAME"], spec_b.hd["ROOTNAME"]]
+        spec_a.hd["ROOTNAME"] = "".join(p for p, *r in zip(*rootnames) if all(p == c for c in r)) + "_SUM"
         return spec_a
 
     def __deepcopy__(self, memo={}):
@@ -583,23 +586,25 @@ def main(infiles, bin_size=None, output_dir=None):
             spec.bin_size(bin_size)
             outfiles += spec.dump_txt("_".join([filename, key]), spec_list=spec.subspec[key], output_dir=output_dir)
             outfiles += spec.plot(savename="_".join([filename, key]), spec_list=spec.subspec[key], plots_folder=plots_folder)
-            if hasattr(aper, spec.hd["APER_ID"]):
-                aper[spec.hd["APER_ID"]].append(spec.subspec[key]["PASS12corr"])
+            if spec.hd["APER_ID"] in aper.keys():
+                aper[str(spec.hd["APER_ID"])].append(specpol(spec.subspec[key]["PASS12corr"]))
             else:
-                aper[spec.hd["APER_ID"]] = [spec.subspec[key]["PASS12corr"]]
+                aper[str(spec.hd["APER_ID"])] = [specpol(spec.subspec[key]["PASS12corr"])]
         else:
             outfiles += spec.dump_txt(filename, output_dir=output_dir)
             outfiles += spec.plot(savename=filename, plots_folder=plots_folder)
-            if hasattr(aper, spec.hd["APER_ID"]):
-                aper[spec.hd["APER_ID"]].append(spec.subspec["PASS12corr"])
+            if spec.hd["APER_ID"] in aper.keys():
+                aper[str(spec.hd["APER_ID"])].append(specpol(spec.subspec["PASS12corr"]))
             else:
-                aper[spec.hd["APER_ID"]] = [spec.subspec["PASS12corr"]]
+                aper[str(spec.hd["APER_ID"])] = [specpol(spec.subspec["PASS12corr"])]
     plt.close("all")
     for key in aper.keys():
-        filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), "SUM"])
+        spec = np.sum(aper[key])
+        rootnames = [s.hd["ROOTNAME"] for s in aper[key]]
+        spec.hd["ROOTNAME"] = "".join(p for p, *r in zip(*rootnames) if all(p == c for c in r)) + "_SUM"
+        filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), spec.hd["ROOTNAME"]])
         if bin_size is not None:
             filename += "_{0:.2f}bin".format(bin_size)
-        spec = np.sum(aper[key])
         outfiles.append(spec.dump_txt("_".join([filename, key]), output_dir=output_dir))
         outfiles.append(spec.plot(savename="_".join([filename, key]), plots_folder=plots_folder)[2])
     plt.show()
