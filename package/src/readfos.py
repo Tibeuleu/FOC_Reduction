@@ -61,6 +61,13 @@ class specpol(object):
             self.U = deepcopy(other.U)
             self.V = deepcopy(other.V)
             self.IQUV_cov = deepcopy(other.IQUV_cov)
+            if hasattr(other, "I_r"):
+                self.I_r = deepcopy(other.I_r)
+                self.I_r_err = deepcopy(other.I_r_err)
+                self.wav_r = deepcopy(other.wav_r)
+                self.wav_r_err = deepcopy(other.wav_r_err)
+                self.wav_r_rest = deepcopy(other.wav_r_rest)
+                self.wav_r_rest_err = deepcopy(other.wav_r_rest_err)
         else:
             # Initialise to zero
             if isinstance(other, int):
@@ -191,36 +198,55 @@ class specpol(object):
         self.I, self.Q, self.U, self.V = np.dot(mrot, np.array([self.I, self.Q, self.U, self.V]))
         self.IQUV_cov = np.dot(mrot, np.dot(self.IQUV_cov.T, mrot.T).T)
 
-    def bin(self, bin_edges):
+    def bin(self, bin_edges, density=False):
         """
         Rebin spectra to given list of bin edges.
         """
         in_bin = np.digitize(self.wav, bin_edges) - 1
         spec_b = specpol(bin_edges.shape[0] - 1)
+        if hasattr(self, "I_r"):
+            spec_b.I_r = deepcopy(self.I_r)
+            spec_b.I_r_err = deepcopy(self.I_r_err)
+            spec_b.wav_r = deepcopy(self.wav_r)
+            spec_b.wav_r_err = deepcopy(self.wav_r_err)
+            spec_b.wav_r_rest = deepcopy(self.wav_r_rest)
+            spec_b.wav_r_rest_err = deepcopy(self.wav_r_rest_err)
+        else:
+            spec_b.I_r = deepcopy(self.I)
+            spec_b.I_r_err = deepcopy(self.I_err)
+            spec_b.wav_r = deepcopy(self.wav)
+            spec_b.wav_r_err = deepcopy(self.wav_err)
+            spec_b.wav_r_rest = deepcopy(self.wav_rest)
+            spec_b.wav_r_rest_err = deepcopy(self.wav_rest_err)
         for i in range(bin_edges.shape[0] - 1):
             spec_b.wav[i] = np.mean(self.wav[in_bin == i])
             spec_b.wav_err[i] = (spec_b.wav[i] - bin_edges[i], bin_edges[i + 1] - spec_b.wav[i])
 
-            spec_b.I[i] = np.sum(self.I[in_bin == i])
-            spec_b.Q[i] = np.sum(self.Q[in_bin == i])
-            spec_b.U[i] = np.sum(self.U[in_bin == i])
-            spec_b.V[i] = np.sum(self.V[in_bin == i])
+            if density:
+                wav1 = np.abs(self.wav_err.T[1][in_bin == i].T) + np.abs(self.wav_err.T[0][in_bin == i].T)
+                wav2 = np.abs(spec_b.wav_err[i][1]) + np.abs(spec_b.wav_err[i][0])
+            else:
+                wav1, wav2 = 1.0, 1.0
+            spec_b.I[i] = np.sum(self.I[in_bin == i] * wav1) / wav2
+            spec_b.Q[i] = np.sum(self.Q[in_bin == i] * wav1) / wav2
+            spec_b.U[i] = np.sum(self.U[in_bin == i] * wav1) / wav2
+            spec_b.V[i] = np.sum(self.V[in_bin == i] * wav1) / wav2
             for m in range(4):
-                spec_b.IQUV_cov[m][m][i] = np.sum(self.IQUV_cov[m][m][in_bin == i])
+                spec_b.IQUV_cov[m][m][i] = np.sum(self.IQUV_cov[m][m][in_bin == i] * wav1**2) / wav2**2
                 for n in [k for k in range(4) if k != m]:
-                    spec_b.IQUV_cov[m][n][i] = np.sqrt(np.sum(self.IQUV_cov[m][n][in_bin == i] ** 2))
+                    spec_b.IQUV_cov[m][n][i] = np.sqrt(np.sum((self.IQUV_cov[m][n][in_bin == i] * wav1) ** 2)) / wav2
         spec_b.hd = deepcopy(self.hd)
         spec_b.hd["NAXIS1"] = bin_edges.shape[0] - 1
         spec_b.hd["DATAMIN"], spec_b.hd["DATAMAX"] = spec_b.I.min(), spec_b.I.max()
         spec_b.hd["MINWAV"], spec_b.hd["MAXWAV"] = spec_b.wav.min(), spec_b.wav.max()
         return spec_b
 
-    def bin_size(self, size):
+    def bin_size(self, size, density=False):
         """
         Rebin spectra to selected bin size in Angstrom.
         """
         bin_edges = np.arange(np.floor(self.wav.min()), np.ceil(self.wav.max()), size)
-        return self.bin(bin_edges)
+        return self.bin(bin_edges, density=density)
 
     def dump_txt(self, filename, output_dir=""):
         """
@@ -254,13 +280,20 @@ class specpol(object):
 
         if rest:
             wav, wav_err = self.wav_rest, self.wav_rest_err
+            if hasattr(self, "I_r"):
+                wav_r, wav_r_err = self.wav_r_rest, self.wav_r_rest_err
             rest_str = "Rest "
         else:
             wav, wav_err = self.wav, self.wav_err
+            if hasattr(self, "I_r"):
+                wav_r, wav_r_err = self.wav_r, self.wav_r_err
             rest_str = ""
         # Display flux and polarized flux on first ax
         ax1.set_xlabel(rest_str + r"Wavelength [$\AA$]")
-        ax1.errorbar(wav, self.I, xerr=wav_err.T, yerr=self.I_err, color="k", fmt=".", label="I")
+        if hasattr(self, "I_r"):
+            ax1.errorbar(wav_r, self.I_r, xerr=wav_r_err.T, yerr=self.I_r_err, color="k", fmt=".", label="I")
+        else:
+            ax1.errorbar(wav, self.I, xerr=wav_err.T, yerr=self.I_err, color="k", fmt=".", label="I")
         ax1.errorbar(wav, self.PF, xerr=wav_err.T, yerr=self.PF_err, color="b", fmt=".", label="PF")
         ax1.set_ylabel(r"F$_\lambda$ [erg s$^{-1}$ cm$^{-2} \AA^{-1}$]")
         ax1.set_ylim(ymin=0.0)
@@ -302,6 +335,13 @@ class specpol(object):
             bin_edges[:-1], bin_edges[-1] = spec_a.wav - spec_a.wav_err[:, 0], spec_a.wav[-1] + spec_a.wav_err[-1:1]
             spec_b = other.bin(bin_edges=bin_edges)
 
+        if hasattr(self, "I_r") and hasattr(spec_b, "I_r"):
+            spec_a.I_r = deepcopy(self.I_r + spec_b.I_r)
+            spec_a.I_r_err = deepcopy(self.I_r_err + spec_b.I_r_err)
+            spec_a.wav_r = deepcopy(self.wav_r)
+            spec_a.wav_r_err = deepcopy(self.wav_r_err)
+            spec_a.wav_r_rest = deepcopy(self.wav_r_rest)
+            spec_a.wav_r_rest_err = deepcopy(self.wav_r_rest_err)
         spec_a.I += deepcopy(spec_b.I)
         spec_a.Q += deepcopy(spec_b.Q)
         spec_a.U += deepcopy(spec_b.U)
@@ -313,6 +353,31 @@ class specpol(object):
         rootnames = [spec_a.hd["ROOTNAME"], spec_b.hd["ROOTNAME"]]
         spec_a.hd["ROOTNAME"] = "".join(p for p, *r in zip(*rootnames) if all(p == c for c in r)) + "_SUM"
         return spec_a
+
+    def __mul__(self, other):
+        """
+        Spectra multiplication, by a float value.
+        """
+        if isinstance(other, (int, float)):
+            spec_a = specpol(self)
+            if hasattr(self, "I_r"):
+                spec_a.I_r = deepcopy(self.I_r) * other
+                spec_a.I_r_err = deepcopy(self.I_r_err) * other
+                spec_a.wav_r = deepcopy(self.wav_r)
+                spec_a.wav_r_err = deepcopy(self.wav_r_err)
+                spec_a.wav_r_rest = deepcopy(self.wav_r_rest)
+                spec_a.wav_r_rest_err = deepcopy(self.wav_r_rest_err)
+            spec_a.I *= other
+            spec_a.Q *= other
+            spec_a.U *= other
+            spec_a.V *= other
+            spec_a.IQUV_cov *= other
+
+            spec_a.hd["DATAMIN"], spec_a.hd["DATAMAX"] = spec_a.I.min(), spec_a.I.max()
+            return spec_a
+        raise TypeError(f"Cannot multiply a specpol with {type(other)}")
+
+    __rmul__ = __mul__
 
     def __deepcopy__(self, memo={}):
         spec = specpol(self.wav.shape[0])
@@ -412,6 +477,9 @@ class FOSspecpol(specpol):
             raise ValueError("Input must be a path to a fits file or an HDUlist")
         self.wav = np.concat((wav[0:2, :], wav[0].reshape(1, wav.shape[1]), wav[0].reshape(1, wav.shape[1])), axis=0)
         self.wav_err = np.zeros((self.wav.shape[0], self.wav.shape[1], 2))
+        wav_err = [np.mean((self.wav[j, 1:] - self.wav[j, :-1]) / 2) for j in range(self.wav.shape[0])]
+        for i in range(self.wav.shape[1]):
+            self.wav_err[:, i] = np.array([(wav_err[j], wav_err[j]) for j in range(self.wav.shape[0])])
 
         self.IQUV_cov = np.zeros((4, 4, self.wav.shape[0], self.wav.shape[1]))
 
@@ -507,7 +575,7 @@ class FOSspecpol(specpol):
         if key not in self.subspec.keys():
             self.subspec[key] = dict([])
             for name in ["PASS1", "PASS2", "PASS12", "PASS12corr"]:
-                self.subspec[key][name] = self.subspec[name].bin_size(size)
+                self.subspec[key][name] = self.subspec[name].bin_size(size, density=True)
         return self.subspec[key]
 
     def __add__(self, other):
