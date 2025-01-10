@@ -66,8 +66,6 @@ class specpol(object):
                 self.I_r_err = deepcopy(other.I_r_err)
                 self.wav_r = deepcopy(other.wav_r)
                 self.wav_r_err = deepcopy(other.wav_r_err)
-                self.wav_r_rest = deepcopy(other.wav_r_rest)
-                self.wav_r_rest_err = deepcopy(other.wav_r_rest_err)
         else:
             # Initialise to zero
             if isinstance(other, int):
@@ -89,8 +87,7 @@ class specpol(object):
         self.V = np.zeros(n)
         self.IQUV_cov = np.zeros((4, 4, n))
 
-    @property
-    def wav_rest(self, z=None):
+    def rest(self, wav=None, z=None):
         if z is None and "REDSHIFT" not in self.hd.keys():
             from astroquery.ipac.ned import Ned
 
@@ -98,10 +95,11 @@ class specpol(object):
             self.hd["REDSHIFT"] = z
         elif z is None:
             z = self.hd["REDSHIFT"]
-        return self.wav / (z + 1)
+        if wav is None:
+            wav = self.wav
+        return wav / (z + 1)
 
-    @property
-    def wav_rest_err(self, z=None):
+    def unrest(self, wav=None, z=None):
         if z is None and "REDSHIFT" not in self.hd.keys():
             from astroquery.ipac.ned import Ned
 
@@ -109,7 +107,9 @@ class specpol(object):
             self.hd["REDSHIFT"] = z
         elif z is None:
             z = self.hd["REDSHIFT"]
-        return self.wav_err / (z + 1)
+        if wav is None:
+            wav = self.wav
+        return wav * (z + 1)
 
     @property
     def I_err(self):
@@ -209,15 +209,11 @@ class specpol(object):
             spec_b.I_r_err = deepcopy(self.I_r_err)
             spec_b.wav_r = deepcopy(self.wav_r)
             spec_b.wav_r_err = deepcopy(self.wav_r_err)
-            spec_b.wav_r_rest = deepcopy(self.wav_r_rest)
-            spec_b.wav_r_rest_err = deepcopy(self.wav_r_rest_err)
         else:
             spec_b.I_r = deepcopy(self.I)
             spec_b.I_r_err = deepcopy(self.I_err)
             spec_b.wav_r = deepcopy(self.wav)
             spec_b.wav_r_err = deepcopy(self.wav_err)
-            spec_b.wav_r_rest = deepcopy(self.wav_rest)
-            spec_b.wav_r_rest_err = deepcopy(self.wav_rest_err)
         for i in range(bin_edges.shape[0] - 1):
             spec_b.wav[i] = np.mean(self.wav[in_bin == i])
             spec_b.wav_err[i] = (spec_b.wav[i] - bin_edges[i], bin_edges[i + 1] - spec_b.wav[i])
@@ -256,7 +252,7 @@ class specpol(object):
         np.savetxt(join_path(output_dir, filename + ".txt"), data_dump)
         return join_path(output_dir, filename)
 
-    def plot(self, fig=None, ax=None, rest=False, savename=None, plots_folder=""):
+    def plot(self, fig=None, ax=None, savename=None, plots_folder=""):
         """
         Display current spectra.
         """
@@ -278,36 +274,32 @@ class specpol(object):
         else:
             ax1 = self.ax
 
-        if rest:
-            wav, wav_err = self.wav_rest, self.wav_rest_err
-            if hasattr(self, "I_r"):
-                wav_r, wav_r_err = self.wav_r_rest, self.wav_r_rest_err
-            rest_str = "Rest "
-        else:
-            wav, wav_err = self.wav, self.wav_err
-            if hasattr(self, "I_r"):
-                wav_r, wav_r_err = self.wav_r, self.wav_r_err
-            rest_str = ""
         # Display flux and polarized flux on first ax
-        ax1.set_xlabel(rest_str + r"Wavelength [$\AA$]")
+        ax1.set_xlabel(r"Wavelength [$\AA$]")
+        secax1 = ax1.secondary_xaxis("top", functions=(self.rest, self.unrest))
+        secax1.set_xlabel(r"Rest wavelength [$\AA$]")
         if hasattr(self, "I_r"):
-            ax1.errorbar(wav_r, self.I_r, xerr=wav_r_err.T, yerr=self.I_r_err, color="k", fmt=".", label="I")
+            ax1.errorbar(self.wav_r, self.I_r, xerr=self.wav_r_err.T, yerr=self.I_r_err, color="k", fmt=".", label="I")
+            ymax = np.max(self.I_r + self.I_r_err * 1.5)
         else:
-            ax1.errorbar(wav, self.I, xerr=wav_err.T, yerr=self.I_err, color="k", fmt=".", label="I")
-        ax1.errorbar(wav, self.PF, xerr=wav_err.T, yerr=self.PF_err, color="b", fmt=".", label="PF")
+            ax1.errorbar(self.wav, self.I, xerr=self.wav_err.T, yerr=self.I_err, color="k", fmt=".", label="I")
+            ymax = np.max(self.I + self.I_err * 3.0)
+        ax1.errorbar(self.wav, self.PF, xerr=self.wav_err.T, yerr=self.PF_err, color="b", fmt=".", label="PF")
         ax1.set_ylabel(r"F$_\lambda$ [erg s$^{-1}$ cm$^{-2} \AA^{-1}$]")
-        ax1.set_ylim(ymin=0.0)
+        ax1.set_ylim([0.0, ymax])
         ax1.legend(ncols=2, loc=1)
 
         if isinstance(self.ax, np.ndarray):
             # When given 2 axes, display P and PA on second
-            ax2.set_xlabel(rest_str + r"Wavelength [$\AA$]")
-            ax2.errorbar(wav, self.P, xerr=wav_err.T, yerr=self.P_err, color="b", fmt=".", label="P")
+            ax2.set_xlabel(r"Wavelength [$\AA$]")
+            secax2 = ax2.secondary_xaxis("top", functions=(self.rest, self.unrest))
+            secax2.set_xlabel(r"Rest wavelength [$\AA$]")
+            ax2.errorbar(self.wav, self.P, xerr=self.wav_err.T, yerr=self.P_err, color="b", fmt=".", label="P")
             ax2.set_ylim([0.0, 1.0])
             ax2.set_ylabel(r"P", color="b")
             ax2.tick_params(axis="y", color="b", labelcolor="b")
             ax22 = ax2.twinx()
-            ax22.errorbar(wav, self.PA, xerr=wav_err.T, yerr=self.PA_err, color="r", fmt=".", label="PA [°]")
+            ax22.errorbar(self.wav, self.PA, xerr=self.wav_err.T, yerr=self.PA_err, color="r", fmt=".", label="PA [°]")
             ax22.set_ylim([0.0, 180.0])
             ax22.set_ylabel(r"PA", color="r")
             ax22.tick_params(axis="y", color="r", labelcolor="r")
@@ -340,8 +332,6 @@ class specpol(object):
             spec_a.I_r_err = deepcopy(self.I_r_err + spec_b.I_r_err)
             spec_a.wav_r = deepcopy(self.wav_r)
             spec_a.wav_r_err = deepcopy(self.wav_r_err)
-            spec_a.wav_r_rest = deepcopy(self.wav_r_rest)
-            spec_a.wav_r_rest_err = deepcopy(self.wav_r_rest_err)
         spec_a.I += deepcopy(spec_b.I)
         spec_a.Q += deepcopy(spec_b.Q)
         spec_a.U += deepcopy(spec_b.U)
@@ -365,8 +355,6 @@ class specpol(object):
                 spec_a.I_r_err = deepcopy(self.I_r_err) * other
                 spec_a.wav_r = deepcopy(self.wav_r)
                 spec_a.wav_r_err = deepcopy(self.wav_r_err)
-                spec_a.wav_r_rest = deepcopy(self.wav_r_rest)
-                spec_a.wav_r_rest_err = deepcopy(self.wav_r_rest_err)
             spec_a.I *= other
             spec_a.Q *= other
             spec_a.U *= other
@@ -479,7 +467,7 @@ class FOSspecpol(specpol):
         self.wav_err = np.zeros((self.wav.shape[0], self.wav.shape[1], 2))
         wav_err = [np.mean((self.wav[j, 1:] - self.wav[j, :-1]) / 2) for j in range(self.wav.shape[0])]
         for i in range(self.wav.shape[1]):
-            self.wav_err[:, i] = np.array([(wav_err[j], wav_err[j]) for j in range(self.wav.shape[0])])
+            self.wav_err[:, i] = np.abs(np.array([(wav_err[j], wav_err[j]) for j in range(self.wav.shape[0])]))
 
         self.IQUV_cov = np.zeros((4, 4, self.wav.shape[0], self.wav.shape[1]))
 
@@ -520,7 +508,7 @@ class FOSspecpol(specpol):
             outfiles.append(spec_list[name].dump_txt(filename="_".join([filename, name]), output_dir=output_dir))
         return outfiles
 
-    def plot(self, spec_list=None, rest=True, savename=None, plots_folder="", fos=False):
+    def plot(self, spec_list=None, savename=None, plots_folder="", fos=False):
         """
         Display current spectra in single figure.
         """
@@ -537,20 +525,18 @@ class FOSspecpol(specpol):
         ):
             self.ax[i][0].set_title(title)
             if fos:
-                if rest:
-                    wav, wav_err = self.wav_rest, self.wav_rest_err
-                    rest_str = "Rest "
-                else:
-                    wav, wav_err = self.wav, self.wav_rest
-                    rest_str = ""
-                self.ax[i][0] = spec_list[name].plot(ax=self.ax[i][0], rest=rest)
-                self.ax[i][1].set_xlabel(rest_str + r"Wavelength [$\AA$]")
-                self.ax[i][1].errorbar(wav[i], self.P_fos[i], xerr=wav_err[i].T, yerr=self.P_fos_err[i], color="b", fmt=".", label="P_fos")
+                self.ax[i][0] = spec_list[name].plot(ax=self.ax[i][0])
+                self.ax[i][1].set_xlabel(r"Wavelength [$\AA$]")
+                secax1 = self.ax[i][0].secondary_xaxis("top", functions=(self.rest, self.unrest))
+                secax1.set_xlabel(r"Rest wavelength [$\AA$]")
+                secax2 = self.ax[i][1].secondary_xaxis("top", functions=(self.rest, self.unrest))
+                secax2.set_xlabel(r"Rest wavelength [$\AA$]")
+                self.ax[i][1].errorbar(self.wav[i], self.P_fos[i], xerr=self.wav_err[i].T, yerr=self.P_fos_err[i], color="b", fmt=".", label="P_fos")
                 self.ax[i][1].set_ylim([0.0, 1.0])
                 self.ax[i][1].set_ylabel(r"P", color="b")
                 self.ax[i][1].tick_params(axis="y", color="b", labelcolor="b")
                 ax22 = self.ax[i][1].twinx()
-                ax22.errorbar(wav[i], self.PA_fos[i], xerr=wav_err[i].T, yerr=self.PA_fos_err[i], color="r", fmt=".", label="PA_fos [°]")
+                ax22.errorbar(self.wav[i], self.PA_fos[i], xerr=self.wav_err[i].T, yerr=self.PA_fos_err[i], color="r", fmt=".", label="PA_fos [°]")
                 ax22.set_ylim([0.0, 180.0])
                 ax22.set_ylabel(r"PA", color="r")
                 ax22.tick_params(axis="y", color="r", labelcolor="r")
