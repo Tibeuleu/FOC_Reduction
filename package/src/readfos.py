@@ -54,6 +54,7 @@ class specpol(object):
         if isinstance(other, __class__):
             # Copy constructor
             self.hd = deepcopy(other.hd)
+            self.bin_edges = deepcopy(other.bin_edges)
             self.wav = deepcopy(other.wav)
             self.wav_err = deepcopy(other.wav_err)
             self.I = deepcopy(other.I)
@@ -79,6 +80,9 @@ class specpol(object):
         Set all values to zero.
         """
         self.hd = dict([])
+        self.hd["DENSITY"] = False
+        self.hd["XUNIT"], self.hd["YUNIT"] = r"Wavelength [m]", r"F [count s$^{-1}$]"
+        self.bin_edges = np.zeros(n + 1)
         self.wav = np.zeros(n)
         self.wav_err = np.zeros((n, 2))
         self.I = np.zeros(n)
@@ -198,51 +202,61 @@ class specpol(object):
         self.I, self.Q, self.U, self.V = np.dot(mrot, np.array([self.I, self.Q, self.U, self.V]))
         self.IQUV_cov = np.dot(mrot, np.dot(self.IQUV_cov.T, mrot.T).T)
 
-    def bin(self, bin_edges, density=False):
+    def bin(self, bin_edges):
         """
         Rebin spectra to given list of bin edges.
         """
+        # Get new binning distribution and define new empty spectra
         in_bin = np.digitize(self.wav, bin_edges) - 1
-        spec_b = specpol(bin_edges.shape[0] - 1)
+        out = specpol(bin_edges.shape[0] - 1)
         if hasattr(self, "I_r"):
-            spec_b.I_r = deepcopy(self.I_r)
-            spec_b.I_r_err = deepcopy(self.I_r_err)
-            spec_b.wav_r = deepcopy(self.wav_r)
-            spec_b.wav_r_err = deepcopy(self.wav_r_err)
+            # Propagate "raw" flux spectra to new bin
+            out.I_r = deepcopy(self.I_r)
+            out.I_r_err = deepcopy(self.I_r_err)
+            out.wav_r = deepcopy(self.wav_r)
+            out.wav_r_err = deepcopy(self.wav_r_err)
         else:
-            spec_b.I_r = deepcopy(self.I)
-            spec_b.I_r_err = deepcopy(self.I_err)
-            spec_b.wav_r = deepcopy(self.wav)
-            spec_b.wav_r_err = deepcopy(self.wav_err)
-        for i in range(bin_edges.shape[0] - 1):
-            spec_b.wav[i] = np.mean(self.wav[in_bin == i])
-            spec_b.wav_err[i] = (spec_b.wav[i] - bin_edges[i], bin_edges[i + 1] - spec_b.wav[i])
+            # Create "raw" flux spectra from previously unbinned spectra
+            out.I_r = deepcopy(self.I)
+            out.I_r_err = deepcopy(self.I_err)
+            out.wav_r = deepcopy(self.wav)
+            out.wav_r_err = deepcopy(self.wav_err)
 
-            if density:
-                wav1 = np.abs(self.wav_err.T[1][in_bin == i].T) + np.abs(self.wav_err.T[0][in_bin == i].T)
-                wav2 = np.abs(spec_b.wav_err[i][1]) + np.abs(spec_b.wav_err[i][0])
+        for i in range(bin_edges.shape[0] - 1):
+            # Set the wavelength as the mean wavelength of acquisitions in bin, default to the bin center
+            out.wav[i] = np.mean(self.wav[in_bin == i]) if np.any(in_bin == i) else 0.5 * (bin_edges[i] + bin_edges[i + 1])
+            out.wav_err[i] = (out.wav[i] - bin_edges[i], bin_edges[i + 1] - out.wav[i])
+
+            if self.hd["DENSITY"] and np.any(in_bin == i):
+                # If flux density, convert to flux before converting back to the new density
+                wav1 = np.abs(self.wav_err[in_bin == i]).sum(axis=1)
+                wav2 = np.abs(out.wav_err[i]).sum()
             else:
                 wav1, wav2 = 1.0, 1.0
-            spec_b.I[i] = np.sum(self.I[in_bin == i] * wav1) / wav2
-            spec_b.Q[i] = np.sum(self.Q[in_bin == i] * wav1) / wav2
-            spec_b.U[i] = np.sum(self.U[in_bin == i] * wav1) / wav2
-            spec_b.V[i] = np.sum(self.V[in_bin == i] * wav1) / wav2
+            out.I[i] = np.sum(self.I[in_bin == i] * wav1) / wav2 if np.any(in_bin == i) else 0.0
+            out.Q[i] = np.sum(self.Q[in_bin == i] * wav1) / wav2 if np.any(in_bin == i) else 0.0
+            out.U[i] = np.sum(self.U[in_bin == i] * wav1) / wav2 if np.any(in_bin == i) else 0.0
+            out.V[i] = np.sum(self.V[in_bin == i] * wav1) / wav2 if np.any(in_bin == i) else 0.0
             for m in range(4):
-                spec_b.IQUV_cov[m][m][i] = np.sum(self.IQUV_cov[m][m][in_bin == i] * wav1**2) / wav2**2
+                # Quadratically sum the uncertainties
+                out.IQUV_cov[m][m][i] = np.sum(self.IQUV_cov[m][m][in_bin == i] * wav1**2) / wav2**2 if np.any(in_bin == i) else 0.0
                 for n in [k for k in range(4) if k != m]:
-                    spec_b.IQUV_cov[m][n][i] = np.sqrt(np.sum((self.IQUV_cov[m][n][in_bin == i] * wav1) ** 2)) / wav2
-        spec_b.hd = deepcopy(self.hd)
-        spec_b.hd["NAXIS1"] = bin_edges.shape[0] - 1
-        spec_b.hd["DATAMIN"], spec_b.hd["DATAMAX"] = spec_b.I.min(), spec_b.I.max()
-        spec_b.hd["MINWAV"], spec_b.hd["MAXWAV"] = spec_b.wav.min(), spec_b.wav.max()
-        return spec_b
+                    out.IQUV_cov[m][n][i] = np.sqrt(np.sum((self.IQUV_cov[m][n][in_bin == i] * wav1) ** 2)) / wav2 if np.any(in_bin == i) else 0.0
+        # Update bin edges and header
+        out.bin_edges = bin_edges
+        out.hd = deepcopy(self.hd)
+        out.hd["NAXIS1"] = bin_edges.shape[0] - 1
+        out.hd["DATAMIN"], out.hd["DATAMAX"] = out.I.min(), out.I.max()
+        out.hd["MINWAV"], out.hd["MAXWAV"] = out.wav.min(), out.wav.max()
+        out.hd["STEPWAV"] = np.max(bin_edges[1:] - bin_edges[:-1])
+        return out
 
-    def bin_size(self, size, density=False):
+    def bin_size(self, size):
         """
         Rebin spectra to selected bin size in Angstrom.
         """
-        bin_edges = np.arange(np.floor(self.wav.min()), np.ceil(self.wav.max()), size)
-        return self.bin(bin_edges, density=density)
+        bin_edges = np.arange(self.bin_edges.min(), self.bin_edges.max() + size, size, dtype=np.float32)
+        return self.bin(bin_edges)
 
     def dump_txt(self, filename, output_dir=""):
         """
@@ -258,7 +272,8 @@ class specpol(object):
         """
         if fig is None:
             if ax is None:
-                self.fig, self.ax = plt.subplots(1, 2, sharex=True, figsize=(20, 5), layout="constrained")
+                self.fig, self.ax = plt.subplots(3, 1, sharex=True, figsize=(10, 15))
+                self.fig.subplots_adjust(hspace=0)
                 self.fig.suptitle("_".join([self.hd["TARGNAME"], str(self.hd["PROPOSID"]), self.hd["ROOTNAME"], self.hd["APER_ID"]]))
             else:
                 self.ax = ax
@@ -270,42 +285,59 @@ class specpol(object):
                 self.fig = fig
                 self.ax = ax
         if isinstance(self.ax, np.ndarray):
-            ax1, ax2 = self.ax[:2]
+            if self.ax.shape[0] == 2:
+                ax1, ax2 = self.ax[:2]
+                ax22 = ax2.twinx()
+                ax2.set_xlabel(self.hd["XUNIT"])
+                secax1 = ax1.secondary_xaxis("top", functions=(self.rest, self.unrest))
+                secax1.set_xlabel(r"Rest " + self.hd["XUNIT"])
+            else:
+                ax1, ax2, ax22 = self.ax[::-1]
         else:
             ax1 = self.ax
 
         # Display flux and polarized flux on first ax
-        ax1.set_xlabel(r"Wavelength [$\AA$]")
-        secax1 = ax1.secondary_xaxis("top", functions=(self.rest, self.unrest))
-        secax1.set_xlabel(r"Rest wavelength [$\AA$]")
+        ax1.set_xlabel(self.hd["XUNIT"])
+        ax1.set_ylabel(self.hd["YUNIT"])
         if hasattr(self, "I_r"):
+            # If available, display "raw" total flux
             ax1.errorbar(self.wav_r, self.I_r, xerr=self.wav_r_err.T, yerr=self.I_r_err, color="k", fmt=".", label="I")
-            ymax = np.max(self.I_r + self.I_r_err * 1.5)
+            ymin, ymax = np.min((self.I_r - 1.5 * self.I_r_err)[self.I_r - 1.5 * self.I_r_err > 0.0]), np.max(self.I_r + self.I_r_err * 1.5)
+            xmin, xmax = np.min(self.wav_r - self.wav_r_err[:, 0]), np.max(self.wav_r + self.wav_r_err[:, 1])
         else:
             ax1.errorbar(self.wav, self.I, xerr=self.wav_err.T, yerr=self.I_err, color="k", fmt=".", label="I")
-            ymax = np.max(self.I + self.I_err * 3.0)
-        ax1.errorbar(self.wav, self.PF, xerr=self.wav_err.T, yerr=self.PF_err, color="b", fmt=".", label="PF")
-        ax1.set_ylabel(r"F$_\lambda$ [erg s$^{-1}$ cm$^{-2} \AA^{-1}$]")
-        ax1.set_ylim([0.0, ymax])
-        ax1.legend(ncols=2, loc=1)
+            ymin, ymax = np.min((self.I - 1.5 * self.I_err)[self.I - 1.5 * self.I_err > 0.0]), np.max(self.I + self.I_err * 1.5)
+            xmin, xmax = np.min(self.wav - self.wav_err[:, 0]), np.max(self.wav + self.wav_err[:, 1])
+        # ax1.errorbar(self.wav, self.PF, xerr=self.wav_err.T, yerr=self.PF_err, color="b", fmt=".", label="PF")
+        # ax1.set_ylim([np.min(self.PF[self.PF > 0.0] - self.PF_err[self.PF > 0.0] * 1.5), ymax])
+        # ax1.set_ylim([ymin, ymax])
+        ax1.set_xlim([np.min([xmin, self.bin_edges.min()]), np.max([xmax, self.bin_edges.max()])])
+        # ax1.set_yscale("log")
+        # ax1.legend(ncols=2, loc=1)
 
         if isinstance(self.ax, np.ndarray):
             # When given 2 axes, display P and PA on second
-            ax2.set_xlabel(r"Wavelength [$\AA$]")
-            secax2 = ax2.secondary_xaxis("top", functions=(self.rest, self.unrest))
-            secax2.set_xlabel(r"Rest wavelength [$\AA$]")
-            ax2.errorbar(self.wav, self.P, xerr=self.wav_err.T, yerr=self.P_err, color="b", fmt=".", label="P")
-            ax2.set_ylim([0.0, 1.0])
-            ax2.set_ylabel(r"P", color="b")
+            ax2.errorbar(self.wav, self.P * 100.0, xerr=self.wav_err.T, yerr=self.P_err * 100.0, color="b", fmt=".", label="P")
+            pmin, pmax = (
+                np.min(self.P[self.I > 0.0] - 1.5 * self.P_err[self.I > 0.0]) * 100.0,
+                np.max(self.P[self.I > 0.0] + 1.5 * self.P_err[self.I > 0.0]) * 100.0,
+            )
+            ax2.set_ylim([pmin if pmin > 0.0 else 0.0, pmax if pmax < 100.0 else 100.0])
+            ax2.set_ylabel(r"P [%]", color="b")
             ax2.tick_params(axis="y", color="b", labelcolor="b")
-            ax22 = ax2.twinx()
+
             ax22.errorbar(self.wav, self.PA, xerr=self.wav_err.T, yerr=self.PA_err, color="r", fmt=".", label="PA [°]")
-            ax22.set_ylim([0.0, 180.0])
-            ax22.set_ylabel(r"PA", color="r")
+            pamin, pamax = np.min(self.PA[self.I > 0.0] - 1.5 * self.PA_err[self.I > 0.0]), np.max(self.PA[self.I > 0.0] + 1.5 * self.PA_err[self.I > 0.0])
+            ax22.set_ylim([pamin if pamin > 0.0 else 0.0, pamax if pamax < 180.0 else 180.0])
+            ax22.set_ylabel(r"PA [°]", color="r")
             ax22.tick_params(axis="y", color="r", labelcolor="r")
+
+            secax22 = ax22.secondary_xaxis("top", functions=(self.rest, self.unrest))
+            secax22.set_xlabel(r"Rest " + self.hd["XUNIT"])
             h2, l2 = ax2.get_legend_handles_labels()
             h22, l22 = ax22.get_legend_handles_labels()
-            ax2.legend(h2 + h22, l2 + l22, ncols=2, loc=1)
+            if self.ax.shape[0] == 2:
+                ax2.legend(h2 + h22, l2 + l22, ncols=2, loc=1)
 
         if hasattr(self, "fig") and savename is not None:
             self.fig.savefig(join_path(plots_folder, savename + ".pdf"), dpi=300, bbox_inches="tight")
@@ -317,61 +349,82 @@ class specpol(object):
 
     def __add__(self, other):
         """
-        Spectra addition, if not same binning default to self bins.
+        Spectra addition, if not same binning concatenate both spectra binning.
         """
-        spec_a = specpol(self)
-        if np.all(self.wav == other.wav):
-            spec_b = other
+        if (self.bin_edges.shape == other.bin_edges.shape) and np.all(self.bin_edges == other.bin_edges):
+            bin_edges = deepcopy(self.bin_edges)
         else:
-            bin_edges = np.zeros(spec_a.wav.shape[0] + 1)
-            bin_edges[:-1], bin_edges[-1] = spec_a.wav - spec_a.wav_err[:, 0], spec_a.wav[-1] + spec_a.wav_err[-1:1]
-            spec_b = other.bin(bin_edges=bin_edges)
+            if self.bin_edges[0] <= other.bin_edges[0]:
+                bin_edges = deepcopy(self.bin_edges)
+            else:
+                bin_edges = deepcopy(other.bin_edges)
+            if other.bin_edges[-1] > bin_edges[-1]:
+                bin_edges = np.concat((bin_edges, deepcopy(other.bin_edges[other.bin_edges > bin_edges[-1]])), axis=0)
+            elif self.bin_edges[-1] > bin_edges[-1]:
+                bin_edges = np.concat((bin_edges, deepcopy(self.bin_edges[self.bin_edges > bin_edges[-1]])), axis=0)
+        spec_a = specpol(self.bin(bin_edges=bin_edges))
+        spec_b = specpol(other.bin(bin_edges=bin_edges))
+        spec = specpol(bin_edges.shape[0] - 1)
+        spec.hd = deepcopy(self.hd)
+        spec.bin_edges = bin_edges
+        spec.wav = np.mean([spec_a.wav, spec_b.wav], axis=0)
+        spec.wav_err = np.array([spec.wav - spec.bin_edges[:-1], spec.bin_edges[1:] - spec.wav]).T
 
-        if hasattr(self, "I_r") and hasattr(spec_b, "I_r"):
-            spec_a.I_r = deepcopy(self.I_r + spec_b.I_r)
-            spec_a.I_r_err = deepcopy(self.I_r_err + spec_b.I_r_err)
-            spec_a.wav_r = deepcopy(self.wav_r)
-            spec_a.wav_r_err = deepcopy(self.wav_r_err)
-        spec_a.I += deepcopy(spec_b.I)
-        spec_a.Q += deepcopy(spec_b.Q)
-        spec_a.U += deepcopy(spec_b.U)
-        spec_a.V += deepcopy(spec_b.V)
-        spec_a.IQUV_cov += deepcopy(spec_b.IQUV_cov)
+        if hasattr(self, "I_r") and hasattr(other, "I_r"):
+            # Deal with the concatenation of the "raw" total flux spectra
+            if self.wav_r[0] <= other.wav_r[0]:
+                inter = other.wav_r[0], self.wav_r[-1]
+                spec.wav_r = deepcopy(np.concat((self.wav_r, other.wav_r[other.wav_r > self.wav_r[-1]])))
+                spec.wav_r_err = deepcopy(np.concat((self.wav_r_err, other.wav_r_err[other.wav_r > self.wav_r[-1]]), axis=0))
+                spec.I_r = deepcopy(np.concat((self.I_r, other.I_r[other.wav_r > self.wav_r[-1]])))
+                spec.I_r_err = deepcopy(np.concat((self.I_r_err, other.I_r_err[other.wav_r > self.wav_r[-1]]), axis=0))
+            else:
+                inter = self.wav_r[0], other.wav_r[-1]
+                spec.wav_r = deepcopy(np.concat((other.wav_r, self.wav_r[self.wav_r > other.wav_r[-1]])))
+                spec.wav_r_err = deepcopy(np.concat((other.wav_r_err, self.wav_r_err[self.wav_r > other.wav_r[-1]]), axis=0))
+                spec.I_r = deepcopy(np.concat((other.I_r, self.I_r[self.wav_r > other.wav_r[-1]])))
+                spec.I_r_err = deepcopy(np.concat((other.I_r_err, self.I_r_err[self.wav_r > other.wav_r[-1]]), axis=0))
+            # When both spectra intersect, compute intersection as the mean
+            edges = np.concat((spec.wav_r - spec.wav_r_err[:, 0], [spec.wav_r[-1] + spec.wav_r_err[-1, 1]]))
+            bin, bino = np.digitize(self.wav_r, edges) - 1, np.digitize(other.wav_r, edges) - 1
+            for w in np.arange(spec.wav_r.shape[0])[np.logical_and(spec.wav_r >= inter[0], spec.wav_r <= inter[1])]:
+                if self.hd["DENSITY"] and np.any(bin == w):
+                    # If flux density, convert to flux before converting back to the new density
+                    wav, wavo = (
+                        np.abs(self.wav_r_err[bin == w]).sum(axis=1) * (self.I_r[bin == w] > self.I_r_err[bin == w]),
+                        np.abs(other.wav_r_err[bino == w]).sum(axis=1) * (other.I_r[bino == w] > other.I_r_err[bino == w]),
+                    )
+                    wavs = np.abs(spec.wav_r_err[w]).sum()
+                else:
+                    wav, wavo, wavs = 1.0, 1.0, 1.0
+                n = np.sum(self.I_r[bin == w] > self.I_r_err[bin == w]) + np.sum(other.I_r[bino == w] > other.I_r_err[bino == w])
+                spec.I_r[w] = np.sum(np.concat([self.I_r[bin == w] * wav, other.I_r[bino == w] * wavo])) / wavs / n
+                spec.I_r_err[w] = np.sqrt(np.sum(np.concat([self.I_r_err[bin == w] ** 2 * wav**2, other.I_r_err[bino == w] ** 2 * wavo**2]))) / wavs / n
 
-        spec_a.hd["DATAMIN"], spec_a.hd["DATAMAX"] = spec_a.I.min(), spec_a.I.max()
-        spec_a.hd["EXPTIME"] += spec_b.hd["EXPTIME"]
+        spec.I = deepcopy(spec_a.I + spec_b.I)
+        spec.Q = deepcopy(spec_a.Q + spec_b.Q)
+        spec.U = deepcopy(spec_a.U + spec_b.U)
+        spec.V = deepcopy(spec_a.V + spec_b.V)
+        # Quadratically sum uncertainties
+        for i in range(4):
+            spec.IQUV_cov[i][i] = deepcopy(spec_a.IQUV_cov[i][i] + spec_b.IQUV_cov[i][i])
+            for j in [k for k in range(4) if k != i]:
+                spec.IQUV_cov[i][j] = deepcopy(np.sqrt(spec_a.IQUV_cov[i][j] ** 2 + spec_b.IQUV_cov[i][j] ** 2))
+
+        # Update header to reflect sum
+        spec.hd["DATAMIN"], spec.hd["DATAMAX"] = spec.I.min(), spec.I.max()
+        spec.hd["MINWAV"], spec.hd["MAXWAV"] = spec.wav.min(), spec.wav.max()
+        spec.hd["EXPTIME"] = spec_a.hd["EXPTIME"] + spec_b.hd["EXPTIME"]
         rootnames = [spec_a.hd["ROOTNAME"], spec_b.hd["ROOTNAME"]]
-        spec_a.hd["ROOTNAME"] = "".join(p for p, *r in zip(*rootnames) if all(p == c for c in r)) + "_SUM"
-        return spec_a
-
-    def __mul__(self, other):
-        """
-        Spectra multiplication, by a float value.
-        """
-        if isinstance(other, (int, float)):
-            spec_a = specpol(self)
-            if hasattr(self, "I_r"):
-                spec_a.I_r = deepcopy(self.I_r) * other
-                spec_a.I_r_err = deepcopy(self.I_r_err) * other
-                spec_a.wav_r = deepcopy(self.wav_r)
-                spec_a.wav_r_err = deepcopy(self.wav_r_err)
-            spec_a.I *= other
-            spec_a.Q *= other
-            spec_a.U *= other
-            spec_a.V *= other
-            spec_a.IQUV_cov *= other
-
-            spec_a.hd["DATAMIN"], spec_a.hd["DATAMAX"] = spec_a.I.min(), spec_a.I.max()
-            return spec_a
-        raise TypeError(f"Cannot multiply a specpol with {type(other)}")
-
-    __rmul__ = __mul__
+        spec.hd["ROOTNAME"] = "".join(p for p, *r in zip(*rootnames) if all(p == c for c in r)) + "_SUM"
+        return spec
 
     def __deepcopy__(self, memo={}):
-        spec = specpol(self.wav.shape[0])
+        spec = specpol(self)
         spec.__dict__.update(self.__dict__)
 
         spec.hd = deepcopy(self.hd, memo)
+        spec.bin_edges = deepcopy(spec.bin_edges, memo)
         spec.wav = deepcopy(self.wav, memo)
         spec.wav_err = deepcopy(self.wav_err, memo)
         spec.I = deepcopy(self.I, memo)
@@ -396,6 +449,7 @@ class FOSspecpol(specpol):
             # Copy constructor
             self.rootname = deepcopy(stokes.rootname)
             self.hd = deepcopy(stokes.hd)
+            self.bin_edges = deepcopy(stokes.bin_edges)
             self.wav = deepcopy(stokes.wav)
             self.wav_err = deepcopy(stokes.wav_err)
             self.I = deepcopy(stokes.I)
@@ -425,6 +479,10 @@ class FOSspecpol(specpol):
         """
         self.rootname = ""
         self.hd = dict([])
+        self.hd["DENSITY"] = True
+        self.hd["TARGNAME"] = "Undefined"
+        self.hd["XUNIT"], self.hd["YUNIT"] = r"Wavelength [$\AA$]", r"F$_\lambda$ [erg s$^{-1}$ cm$^{-2} \AA^{-1}$]"
+        self.bin_edges = np.zeros((4, n + 1))
         self.wav = np.zeros((4, n))
         self.wav_err = np.zeros((4, n, 2))
         self.I = np.zeros((4, n))
@@ -453,7 +511,7 @@ class FOSspecpol(specpol):
         """
         if isinstance(stokes, str):
             self.rootname = stokes.split("_")[0]
-            self.hd = dict(getheader(join_path(data_folder, self.rootname + "_c0f.fits")))
+            self.hd = dict(getheader(join_path(data_folder, self.rootname + "_c3f.fits")))
             wav = getdata(join_path(data_folder, self.rootname + "_c0f.fits"))
             stokes = getdata(join_path(data_folder, self.rootname + "_c3f.fits"))
         elif isinstance(stokes, hdu.hdulist.HDUList):
@@ -463,14 +521,29 @@ class FOSspecpol(specpol):
             stokes = stokes.data
         else:
             raise ValueError("Input must be a path to a fits file or an HDUlist")
+        # FOS spectra are given in flux density with respect to angstrom wavelength
+        self.hd["DENSITY"] = True
+        self.hd["XUNIT"], self.hd["YUNIT"] = r"Wavelength [$\AA$]", r"F$_\lambda$ [erg s$^{-1}$ cm$^{-2} \AA^{-1}$]"
+
+        # We set the error to be half the distance to the next mesure
         self.wav = np.concat((wav[0:2, :], wav[0].reshape(1, wav.shape[1]), wav[0].reshape(1, wav.shape[1])), axis=0)
         self.wav_err = np.zeros((self.wav.shape[0], self.wav.shape[1], 2))
-        wav_err = [np.mean((self.wav[j, 1:] - self.wav[j, :-1]) / 2) for j in range(self.wav.shape[0])]
-        for i in range(self.wav.shape[1]):
-            self.wav_err[:, i] = np.abs(np.array([(wav_err[j], wav_err[j]) for j in range(self.wav.shape[0])]))
+        for i in range(1, self.wav.shape[1] - 1):
+            self.wav_err[:, i] = np.abs(
+                np.array([((self.wav[j][i] - self.wav[j][i - 1]) / 2.0, (self.wav[j][i + 1] - self.wav[j][i - 1]) / 2.0) for j in range(self.wav.shape[0])])
+            )
+        self.wav_err[:, 0] = np.array([self.wav_err[:, 1, 0], self.wav_err[:, 1, 0]]).T
+        self.wav_err[:, -1] = np.array([self.wav_err[:, -2, 1], self.wav_err[:, -2, 1]]).T
+
+        self.hd["MINWAV"], self.hd["MAXWAV"] = self.wav.min(), self.wav.max()
+        self.hd["STEPWAV"] = np.mean(self.wav_err) * 2.0
+        self.bin_edges = np.array(
+            [np.concat((self.wav[i] - self.wav_err[i, :, 0], [self.wav[i, -1] + self.wav_err[i, -1, -1]]), axis=0) for i in range(self.wav.shape[0])]
+        )
 
         self.IQUV_cov = np.zeros((4, 4, self.wav.shape[0], self.wav.shape[1]))
 
+        # Special way of reading FOS spectropolarimetry fits files
         self.I = stokes[0::14]
         self.IQUV_cov[0, 0] = stokes[4::14] ** 2
         self.Q = stokes[1::14]
@@ -479,15 +552,22 @@ class FOSspecpol(specpol):
         self.IQUV_cov[2, 2] = stokes[6::14] ** 2
         self.V = stokes[3::14]
         self.IQUV_cov[3, 3] = stokes[7::14] ** 2
+        self.hd["DATAMIN"], self.hd["DATAMAX"] = self.I.min(), self.I.max()
 
+        # Each file contain 4 spectra: Pass 1, Pass 2, combination of the 2, Combination corrected for orientation and background
         self.subspec = {}
         for i, name in enumerate(["PASS1", "PASS2", "PASS12", "PASS12corr"]):
             spec = specpol(self.wav[i].shape[0])
             spec.hd, spec.wav, spec.wav_err, spec.I, spec.Q, spec.U, spec.V = self.hd, self.wav[i], self.wav_err[i], self.I[i], self.Q[i], self.U[i], self.V[i]
+            spec.bin_edges = np.concat((spec.wav - spec.wav_err[:, 0], [spec.wav[-1] + spec.wav_err[-1, 1]]), axis=0)
+            spec.hd["MINWAV"], spec.hd["MAXWAV"] = spec.wav.min(), spec.wav.max()
+            spec.hd["DATAMIN"], spec.hd["DATAMAX"] = spec.I.min(), spec.I.max()
             spec.IQUV_cov = self.IQUV_cov[:, :, i, :]
+            # Only PASS12corr is corrected for telescope orientation
             spec.rotate(-(name[-4:] != "corr") * spec.hd["PA_APER"])
             self.subspec[name] = spec
 
+        # Following lines contain the polarization components computed by calfos
         self.P_fos = stokes[8::14]
         self.P_fos_err = stokes[11::14]
         self.PC_fos = stokes[9::14]
@@ -545,7 +625,7 @@ class FOSspecpol(specpol):
                 self.ax[i][1].legend(h2 + h22, l2 + l22, ncols=2, loc=1)
             else:
                 self.ax[i] = spec_list[name].plot(ax=self.ax[i])
-        self.ax[0][0].set_ylim(ymin=0.0)
+        # self.ax[0][0].set_ylim(ymin=0.0)
 
         self.fig.suptitle("_".join([self.hd["TARGNAME"], str(self.hd["PROPOSID"]), self.hd["ROOTNAME"], self.hd["APER_ID"]]))
         if savename is not None:
@@ -561,7 +641,7 @@ class FOSspecpol(specpol):
         if key not in self.subspec.keys():
             self.subspec[key] = dict([])
             for name in ["PASS1", "PASS2", "PASS12", "PASS12corr"]:
-                self.subspec[key][name] = self.subspec[name].bin_size(size, density=True)
+                self.subspec[key][name] = self.subspec[name].bin_size(size)
         return self.subspec[key]
 
     def __add__(self, other):
@@ -653,8 +733,9 @@ def main(infiles, bin_size=None, output_dir=None):
                 aper[str(spec.hd["APER_ID"])] = [specpol(spec.subspec["PASS12corr"])]
     plt.close("all")
     for key in aper.keys():
-        spec = np.sum(aper[key])
         rootnames = [s.hd["ROOTNAME"] for s in aper[key]]
+        print(*rootnames)
+        spec = np.sum(aper[key])
         spec.hd["ROOTNAME"] = "".join(p for p, *r in zip(*rootnames) if all(p == c for c in r)) + "_SUM"
         filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), spec.hd["ROOTNAME"]])
         if bin_size is not None:
