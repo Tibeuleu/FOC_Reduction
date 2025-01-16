@@ -354,6 +354,7 @@ class specpol(object):
         if (self.bin_edges.shape == other.bin_edges.shape) and np.all(self.bin_edges == other.bin_edges):
             bin_edges = deepcopy(self.bin_edges)
         else:
+            # If different binning, concatenate binnings
             if self.bin_edges[0] <= other.bin_edges[0]:
                 bin_edges = deepcopy(self.bin_edges)
             else:
@@ -362,14 +363,18 @@ class specpol(object):
                 bin_edges = np.concat((bin_edges, deepcopy(other.bin_edges[other.bin_edges > bin_edges[-1]])), axis=0)
             elif self.bin_edges[-1] > bin_edges[-1]:
                 bin_edges = np.concat((bin_edges, deepcopy(self.bin_edges[self.bin_edges > bin_edges[-1]])), axis=0)
+        # Rebin spectra to be added to ensure same binning
         spec_a = specpol(self.bin(bin_edges=bin_edges))
         spec_b = specpol(other.bin(bin_edges=bin_edges))
+
+        # Create sum spectra
         spec = specpol(bin_edges.shape[0] - 1)
         spec.hd = deepcopy(self.hd)
         spec.bin_edges = bin_edges
         spec.wav = np.mean([spec_a.wav, spec_b.wav], axis=0)
         spec.wav_err = np.array([spec.wav - spec.bin_edges[:-1], spec.bin_edges[1:] - spec.wav]).T
 
+        # Propagate "raw" flux spectra to sum
         if hasattr(self, "I_r") and hasattr(other, "I_r"):
             # Deal with the concatenation of the "raw" total flux spectra
             if self.wav_r[0] <= other.wav_r[0]:
@@ -401,6 +406,7 @@ class specpol(object):
                 spec.I_r[w] = np.sum(np.concat([self.I_r[bin == w] * wav, other.I_r[bino == w] * wavo])) / wavs / n
                 spec.I_r_err[w] = np.sqrt(np.sum(np.concat([self.I_r_err[bin == w] ** 2 * wav**2, other.I_r_err[bino == w] ** 2 * wavo**2]))) / wavs / n
 
+        # Sum stokes fluxes
         spec.I = deepcopy(spec_a.I + spec_b.I)
         spec.Q = deepcopy(spec_a.Q + spec_b.Q)
         spec.U = deepcopy(spec_a.U + spec_b.U)
@@ -689,37 +695,51 @@ class FOSspecpol(specpol):
 
 
 def main(infiles, bin_size=None, output_dir=None):
+    """
+    Produce (binned and summed) spectra for a list of given fits files.
+    """
     outfiles = []
     if infiles is not None:
+        # Divide path in folder + filename
         prod = np.array([["/".join(filepath.split("/")[:-1]), filepath.split("/")[-1]] for filepath in infiles], dtype=str)
-        obs_dir = "/".join(infiles[0].split("/")[:-1])
-        if not path_exists(obs_dir):
-            system("mkdir -p {0:s} {1:s}".format(obs_dir, obs_dir.replace("data", "plots")))
+        obs_dir = np.unique(["/".join(file.split("/")[:-1]) for file in infiles])
+        for dir in obs_dir:
+            # Create missing data/plot folder for tydiness
+            if not path_exists(dir):
+                system("mkdir -p {0:s} {1:s}".format(dir, dir.replace("data", "plots")))
     else:
         print("Must input files to process.")
         return 1
-    data_folder = prod[0][0]
+
+    data_folder = np.unique(prod[:, 0])
     if output_dir is None:
-        output_dir = data_folder
+        output_dir = data_folder[0]
     try:
-        plots_folder = data_folder.replace("data", "plots")
+        plots_folder = output_dir.replace("data", "plots")
     except ValueError:
-        plots_folder = "."
+        plots_folder = output_dir
     if not path_exists(plots_folder):
         system("mkdir -p {0:s} ".format(plots_folder))
-    infiles = [p[1] for p in prod]
 
-    roots = np.unique([file.split("_")[0] for file in infiles])
     aper = dict([])
+    roots = np.unique([p[1].split("_")[0] for p in prod])
+    # Iteration on each observation in infiles
     for rootname in roots:
         print(rootname)
-        spec = FOSspecpol(rootname, data_folder)
+        if data_folder.shape[0] > 1:
+            # For multiple folders (multiple filters) match data_folder on file rootname
+            spec = FOSspecpol(rootname, prod[np.array([p[1].split("_")[0] == rootname for p in prod])][0, 0])
+        else:
+            spec = FOSspecpol(rootname, data_folder[0])
         filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), spec.rootname, spec.hd["APER_ID"]])
         if bin_size is not None:
             key = "{0:.2f}bin".format(bin_size)
             spec.bin_size(bin_size)
+            # Only output binned spectra
             outfiles += spec.dump_txt("_".join([filename, key]), spec_list=spec.subspec[key], output_dir=output_dir)
             outfiles += spec.plot(savename="_".join([filename, key]), spec_list=spec.subspec[key], plots_folder=plots_folder)
+
+            # Save corrected and combined pass for later summation, only sum on same aperture
             if spec.hd["APER_ID"] in aper.keys():
                 aper[str(spec.hd["APER_ID"])].append(specpol(spec.subspec[key]["PASS12corr"]))
             else:
@@ -732,6 +752,8 @@ def main(infiles, bin_size=None, output_dir=None):
             else:
                 aper[str(spec.hd["APER_ID"])] = [specpol(spec.subspec["PASS12corr"])]
     plt.close("all")
+
+    # Sum spectra acquired through same aperture
     for key in aper.keys():
         rootnames = [s.hd["ROOTNAME"] for s in aper[key]]
         print(*rootnames)
@@ -740,6 +762,7 @@ def main(infiles, bin_size=None, output_dir=None):
         filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), spec.hd["ROOTNAME"]])
         if bin_size is not None:
             filename += "_{0:.2f}bin".format(bin_size)
+        # Output summed spectra
         outfiles.append(spec.dump_txt("_".join([filename, key]), output_dir=output_dir))
         outfiles.append(spec.plot(savename="_".join([filename, key]), plots_folder=plots_folder)[2])
     plt.show()
