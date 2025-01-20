@@ -217,10 +217,10 @@ class specpol(object):
             out.wav_r_err = deepcopy(self.wav_r_err)
         else:
             # Create "raw" flux spectra from previously unbinned spectra
-            out.I_r = deepcopy(self.I)
-            out.I_r_err = deepcopy(self.I_err)
-            out.wav_r = deepcopy(self.wav)
-            out.wav_r_err = deepcopy(self.wav_err)
+            out.I_r = deepcopy(self.I[self.I > 0.0])
+            out.I_r_err = deepcopy(self.I_err[self.I > 0.0])
+            out.wav_r = deepcopy(self.wav[self.I > 0.0])
+            out.wav_r_err = deepcopy(self.wav_err[self.I > 0.0])
 
         for i in range(bin_edges.shape[0] - 1):
             # Set the wavelength as the mean wavelength of acquisitions in bin, default to the bin center
@@ -364,8 +364,8 @@ class specpol(object):
             elif self.bin_edges[-1] > bin_edges[-1]:
                 bin_edges = np.concat((bin_edges, deepcopy(self.bin_edges[self.bin_edges > bin_edges[-1]])), axis=0)
         # Rebin spectra to be added to ensure same binning
-        spec_a = specpol(self.bin(bin_edges=bin_edges))
-        spec_b = specpol(other.bin(bin_edges=bin_edges))
+        spec_a = specpol(specpol(self).bin(bin_edges=bin_edges))
+        spec_b = specpol(specpol(other).bin(bin_edges=bin_edges))
 
         # Create sum spectra
         spec = specpol(bin_edges.shape[0] - 1)
@@ -391,6 +391,7 @@ class specpol(object):
                 spec.I_r_err = deepcopy(np.concat((other.I_r_err, self.I_r_err[self.wav_r > other.wav_r[-1]]), axis=0))
             # When both spectra intersect, compute intersection as the mean
             edges = np.concat((spec.wav_r - spec.wav_r_err[:, 0], [spec.wav_r[-1] + spec.wav_r_err[-1, 1]]))
+            edges.sort()
             bin, bino = np.digitize(self.wav_r, edges) - 1, np.digitize(other.wav_r, edges) - 1
             for w in np.arange(spec.wav_r.shape[0])[np.logical_and(spec.wav_r >= inter[0], spec.wav_r <= inter[1])]:
                 if self.hd["DENSITY"] and np.any(bin == w):
