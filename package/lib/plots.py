@@ -114,7 +114,7 @@ def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, pl
             used[r_ax][c_ax] = True
         else:
             ax_curr = ax[r_ax]
-            ax_curr[r_ax] = True
+            used[r_ax] = True
         # plots
         if "vmin" in kwargs.keys() or "vmax" in kwargs.keys():
             vmin, vmax = kwargs["vmin"], kwargs["vmax"]
@@ -338,9 +338,12 @@ def polarization_map(
 
     if P_cut >= 1.0:
         # MaskP on the signal-to-noise value
-        maskP[pol_err > 0.0] = SNRp[pol_err > 0.0] > P_cut
+        SNRp_cut = deepcopy(P_cut)
+        maskP[pol_err > 0.0] = SNRp[pol_err > 0.0] > SNRp_cut
+        P_cut = 0.99
     else:
         # MaskP on the confidence value
+        SNRp_cut = 5.0
         maskP = confP > P_cut
 
     mask = np.logical_and(maskI, maskP)
@@ -363,7 +366,7 @@ def polarization_map(
         fig = plt.figure(figsize=(7 * ratiox, 7 * ratioy), layout="constrained")
     if ax is None:
         ax = fig.add_subplot(111, projection=wcs)
-        ax.set(aspect="equal", fc="k", ylim=[-stkI.shape[0] * 0.01, stkI.shape[0] * 1.01])
+        ax.set(aspect="equal", fc="k", ylim=[-stkI.shape[0] * 0.00, stkI.shape[0] * 1.00])
     # fig.subplots_adjust(hspace=0, wspace=0, left=0.102, right=1.02)
 
     # ax.coords.grid(True, color='white', ls='dotted', alpha=0.5)
@@ -375,8 +378,8 @@ def polarization_map(
     vmin, vmax = 0.0, stkI.max() * convert_flux
     for key, value in [
         ["cmap", [["cmap", "inferno"]]],
-        ["width", [["width", 0.5]]],
-        ["linewidth", [["linewidth", 0.3]]],
+        ["width", [["width", 0.4]]],
+        ["linewidth", [["linewidth", 0.6]]],
     ]:
         try:
             _ = kwargs[key]
@@ -424,7 +427,7 @@ def polarization_map(
         else:
             vmin, vmax = flux_lim
         im = ax.imshow(stkI * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.75, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         levelsI = np.array([0.8, 2.0, 5.0, 10.0, 20.0, 50.0]) / 100.0 * vmax
         print("Flux density contour levels : ", levelsI)
         ax.contour(stkI * convert_flux, levels=levelsI, colors="grey", linewidths=0.5)
@@ -440,8 +443,9 @@ def polarization_map(
                 pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
         else:
             vmin, vmax = flux_lim
+            pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
         im = ax.imshow(stkI * convert_flux * pol, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         # levelsPf = np.linspace(0.0175, 0.50, 5) * pfmax
         levelsPf = np.array([1.73, 13.0, 33.0, 66.0]) / 100.0 * pfmax
         print("Polarized flux density contour levels : ", levelsPf)
@@ -451,13 +455,13 @@ def polarization_map(
         display = "p"
         vmin, vmax = 0.0, 100.0
         im = ax.imshow(pol * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$P$ [%]")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$P$ [%]")
     elif display.lower() in ["pa", "pang", "pol_ang"]:
         # Display polarization degree map
         display = "pa"
         vmin, vmax = 0.0, 180.0
         im = ax.imshow(princ_angle(pang), vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$\theta_P$ [°]")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$\theta_P$ [°]")
     elif display.lower() in ["s_p", "pol_err", "pol_deg_err"]:
         # Display polarization degree error map
         display = "s_p"
@@ -467,7 +471,7 @@ def polarization_map(
         else:
             vmin, vmax = 0.0, 100.0
             im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$\sigma_P$ [%]")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$\sigma_P$ [%]")
     elif display.lower() in ["s_i", "i_err"]:
         # Display intensity error map
         display = "s_i"
@@ -479,7 +483,7 @@ def polarization_map(
             im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap="inferno_r", alpha=1.0)
         else:
             im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$\sigma_I$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$\sigma_I$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
     elif display.lower() in ["snri"]:
         # Display I_stokes signal-to-noise map
         display = "snri"
@@ -491,19 +495,19 @@ def polarization_map(
             ax.contour(SNRi, levels=levelsSNRi, colors="grey", linewidths=0.5)
         else:
             im = ax.imshow(SNRi, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
     elif display.lower() in ["snr", "snrp"]:
         # Display polarization degree signal-to-noise map
         display = "snrp"
         vmin, vmax = 0.0, np.max(SNRp[np.isfinite(SNRp)])
-        if vmax * 0.99 > P_cut:
+        if vmax * 0.99 > SNRp_cut:
             im = ax.imshow(SNRp, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
             levelsSNRp = np.linspace(P_cut, vmax * 0.99, 5).astype(int)
             print("SNRp contour levels : ", levelsSNRp)
             ax.contour(SNRp, levels=levelsSNRp, colors="grey", linewidths=0.5)
         else:
             im = ax.imshow(SNRp, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$P/\sigma_{P}$")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$P/\sigma_{P}$")
     elif display.lower() in ["conf", "confp"]:
         # Display polarization degree signal-to-noise map
         display = "confp"
@@ -512,7 +516,7 @@ def polarization_map(
         levelsconfp = np.array([0.500, 0.900, 0.990, 0.999])
         print("confp contour levels : ", levelsconfp)
         ax.contour(confP, levels=levelsconfp, colors="grey", linewidths=0.5)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$Conf_{P}$")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$Conf_{P}$")
     else:
         # Defaults to intensity map
         if mask.sum() > 0.0:
@@ -520,18 +524,20 @@ def polarization_map(
         else:
             vmin, vmax = 1.0 * np.mean(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
         im = ax.imshow(stkI * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA$]")
+        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA$]")
 
-    # Get integrated values from header
-    I_diluted = stkI[data_mask].sum()
-    I_diluted_err = np.sqrt(np.sum(stk_cov[0, 0][data_mask]))
+    # Get integrated flux values from sum
+    N_pix = data_mask.sum()
+    I_diluted = stkI[data_mask].sum() / N_pix
+    I_diluted_err = np.sqrt(np.sum(stk_cov[0, 0][data_mask])) / N_pix
 
+    # Get integrated polarization values from header
     P_diluted = Stokes[0].header["P_int"]
     P_diluted_err = Stokes[0].header["sP_int"]
     PA_diluted = Stokes[0].header["PA_int"]
     PA_diluted_err = Stokes[0].header["sPA_int"]
 
-    plt.rcParams.update({"font.size": 10})
+    plt.rcParams.update({"font.size": 11})
     px_size = wcs.wcs.get_cdelt()[0] * 3600.0
     px_sc = AnchoredSizeBar(ax.transData, 1.0 / px_size, "1 arcsec", 3, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color)
     north_dir = AnchoredDirectionArrows(
@@ -548,7 +554,7 @@ def polarization_map(
         head_length=10.0,
         head_width=10.0,
         angle=-Stokes[0].header["orientat"],
-        text_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 0.4},
+        text_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 0.5},
         arrow_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 1},
     )
 
@@ -1930,7 +1936,7 @@ class crop_map(object):
             self.im.remove()
         self.im = self.ax.imshow(data * convert_flux, **kwargs)
         if hasattr(self, "cr"):
-            self.cr[0].set_data(*wcs.wcs.crpix)
+            self.cr[0].set_data([wcs.wcs.crpix[0]], [wcs.wcs.crpix[1]])
         else:
             self.cr = self.ax.plot(*wcs.wcs.crpix, "r+")
         self.fig.canvas.draw_idle()
@@ -3275,7 +3281,7 @@ class pol_map(object):
         str_conf = ""
         if self.region is None:
             s_I = np.sqrt(self.IQU_cov[0, 0])
-            N_pix = self.I.size
+            N_pix = self.I.size()
             I_reg = self.I.sum()
             I_reg_err = np.sqrt(np.sum(s_I**2))
             P_reg = self.Stokes[0].header["P_int"]
@@ -3398,7 +3404,7 @@ class pol_map(object):
                 self.an_int.remove()
             self.str_int = (
                 r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                    self.pivot_wav, sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2)
+                    self.pivot_wav, sci_not(I_reg * self.map_convert / N_pix, I_reg_err * self.map_convert / N_pix, 2)
                 )
                 + "\n"
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
@@ -3410,7 +3416,7 @@ class pol_map(object):
             # self.str_cut = (
             #     "\n"
             #     + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-            #         self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
+            #         self.pivot_wav, sci_not(I_cut * self.map_convert/N_cut, I_cut_err * self.map_convert/N_cut, 2)
             #     )
             #     + "\n"
             #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
@@ -3434,7 +3440,7 @@ class pol_map(object):
         else:
             str_int = (
                 r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                    self.pivot_wav, sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2)
+                    self.pivot_wav, sci_not(I_reg * self.map_convert / N_pix, I_reg_err * self.map_convert / N_pix, 2)
                 )
                 + "\n"
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
@@ -3446,7 +3452,7 @@ class pol_map(object):
             # str_cut = (
             #     "\n"
             #     + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-            #         self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
+            #         self.pivot_wav, sci_not(I_cut * self.map_convert/N_cut, I_cut_err * self.map_convert/N_cut, 2)
             #     )
             #     + "\n"
             #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
