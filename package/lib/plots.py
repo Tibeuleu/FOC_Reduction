@@ -366,7 +366,7 @@ def polarization_map(
         fig = plt.figure(figsize=(7 * ratiox, 7 * ratioy), layout="constrained")
     if ax is None:
         ax = fig.add_subplot(111, projection=wcs)
-        ax.set(aspect="equal", fc="k", ylim=[-stkI.shape[0] * 0.00, stkI.shape[0] * 1.00])
+        ax.set(aspect="equal", fc="k")
     # fig.subplots_adjust(hspace=0, wspace=0, left=0.102, right=1.02)
 
     # ax.coords.grid(True, color='white', ls='dotted', alpha=0.5)
@@ -527,9 +527,8 @@ def polarization_map(
         fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA$]")
 
     # Get integrated flux values from sum
-    N_pix = data_mask.sum()
-    I_diluted = stkI[data_mask].sum() / N_pix
-    I_diluted_err = np.sqrt(np.sum(stk_cov[0, 0][data_mask])) / N_pix
+    I_diluted = stkI[data_mask].sum()
+    I_diluted_err = np.sqrt(np.sum(stk_cov[0, 0][data_mask]))
 
     # Get integrated polarization values from header
     P_diluted = Stokes[0].header["P_int"]
@@ -551,8 +550,8 @@ def polarization_map(
         sep_y=0.01,
         sep_x=0.01,
         back_length=0.0,
-        head_length=10.0,
-        head_width=10.0,
+        head_length=7.0,
+        head_width=7.0,
         angle=-Stokes[0].header["orientat"],
         text_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 0.5},
         arrow_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 1},
@@ -602,7 +601,7 @@ def polarization_map(
             color="white",
             xy=(0.01, 1.00),
             xycoords="axes fraction",
-            path_effects=[pe.withStroke(linewidth=0.5, foreground="k")],
+            path_effects=[pe.withStroke(linewidth=2.0, foreground="k")],
             verticalalignment="top",
             horizontalalignment="left",
         )
@@ -617,7 +616,7 @@ def polarization_map(
             color="white",
             xy=(0.01, 1.00),
             xycoords="axes fraction",
-            path_effects=[pe.withStroke(linewidth=0.5, foreground="k")],
+            path_effects=[pe.withStroke(linewidth=2.0, foreground="k")],
             verticalalignment="top",
             horizontalalignment="left",
         )
@@ -3281,7 +3280,6 @@ class pol_map(object):
         str_conf = ""
         if self.region is None:
             s_I = np.sqrt(self.IQU_cov[0, 0])
-            N_pix = self.I.size()
             I_reg = self.I.sum()
             I_reg_err = np.sqrt(np.sum(s_I**2))
             P_reg = self.Stokes[0].header["P_int"]
@@ -3296,7 +3294,6 @@ class pol_map(object):
             s_IU = self.IQU_cov[0, 2]
             s_QU = self.IQU_cov[1, 2]
 
-            N_cut = self.cut.sum()
             I_cut = self.I[self.cut].sum()
             Q_cut = self.Q[self.cut].sum()
             U_cut = self.U[self.cut].sum()
@@ -3332,7 +3329,6 @@ class pol_map(object):
             s_IU = self.IQU_cov[0, 2]
             s_QU = self.IQU_cov[1, 2]
 
-            N_pix = self.region.sum()
             I_reg = self.I[self.region].sum()
             Q_reg = self.Q[self.region].sum()
             U_reg = self.U[self.region].sum()
@@ -3365,7 +3361,6 @@ class pol_map(object):
                 )
 
             new_cut = np.logical_and(self.region, self.cut)
-            N_cut = new_cut.sum()
             I_cut = self.I[new_cut].sum()
             Q_cut = self.Q[new_cut].sum()
             U_cut = self.U[new_cut].sum()
@@ -3404,7 +3399,7 @@ class pol_map(object):
                 self.an_int.remove()
             self.str_int = (
                 r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                    self.pivot_wav, sci_not(I_reg * self.map_convert / N_pix, I_reg_err * self.map_convert / N_pix, 2)
+                    self.pivot_wav, sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2)
                 )
                 + "\n"
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
@@ -3416,7 +3411,7 @@ class pol_map(object):
             # self.str_cut = (
             #     "\n"
             #     + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-            #         self.pivot_wav, sci_not(I_cut * self.map_convert/N_cut, I_cut_err * self.map_convert/N_cut, 2)
+            #         self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
             #     )
             #     + "\n"
             #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
@@ -3440,7 +3435,7 @@ class pol_map(object):
         else:
             str_int = (
                 r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                    self.pivot_wav, sci_not(I_reg * self.map_convert / N_pix, I_reg_err * self.map_convert / N_pix, 2)
+                    self.pivot_wav, sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2)
                 )
                 + "\n"
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
@@ -3452,7 +3447,7 @@ class pol_map(object):
             # str_cut = (
             #     "\n"
             #     + r"$F_{{\lambda}}^{{cut}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-            #         self.pivot_wav, sci_not(I_cut * self.map_convert/N_cut, I_cut_err * self.map_convert/N_cut, 2)
+            #         self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
             #     )
             #     + "\n"
             #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)

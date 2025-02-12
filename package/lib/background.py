@@ -85,12 +85,21 @@ def display_bkg(data, background, std_bkg, headers, histograms=None, binning=Non
                 label=headers[i]["filtnam1"] + " (Obs " + str(filt_obs[headers[i]["filtnam1"]]) + ")",
             )
             ax_h.plot([background[i] * convert_flux[i], background[i] * convert_flux[i]], [hist.min(), hist.max()], "x--", color="C{0:d}".format(i), alpha=0.8)
+            if i == 0:
+                xmin, xmax = np.min(np.array(bins)[np.array(hist) > 1e2]) * convert_flux[0], np.max(np.array(bins)[np.array(hist) > 1e2]) * convert_flux[0]
+            else:
+                xmin, xmax = (
+                    min(xmin, np.min(np.array(bins)[np.array(hist) > 1e2]) * convert_flux[0]),
+                    max(xmax, np.max(np.array(bins)[np.array(hist) > 1e2]) * convert_flux[0]),
+                )
             if coeff is not None:
                 # ax_h.plot(bins*convert_flux[i], gausspol(bins, *coeff[i]), '--', color="C{0:d}".format(i), alpha=0.8)
                 ax_h.plot(bins * convert_flux[i], gauss(bins, *coeff[i]), "--", color="C{0:d}".format(i), alpha=0.8)
         ax_h.set_xscale("log")
-        ax_h.set_ylim([0.0, np.max([hist.max() for hist in histograms])])
-        ax_h.set_xlim([np.min(background * convert_flux) * 1e-2, np.max(background * convert_flux) * 1e2])
+        ax_h.set_yscale("log")
+        ax_h.set_ylim([100.0, np.max([hist.max() for hist in histograms])])
+        # ax_h.set_xlim([np.min(background * convert_flux) * 1e-2, np.max(background * convert_flux) * 1e2])
+        ax_h.set_xlim([xmin, xmax])
         ax_h.set_xlabel(r"Flux [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         ax_h.set_ylabel(r"Number of pixels in bin")
         ax_h.set_title("Histogram for each observation")

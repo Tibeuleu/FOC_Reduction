@@ -48,11 +48,13 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
             f.flush()
         # Save pixel area for flux density computation
         if headers[i]["PXFORMT"] == "NORMAL":
-            headers[i]["PXAREA"] = 6.25e-6  # 25x25 micron squared pixel area in cm^2
+            headers[i]["PXAREA"] = 1.96e-4  # 14x14 milliarcsec squared pixel area in arcsec^2
         elif headers[i]["PXFORMT"] == "ZOOM":
-            headers[i]["PXAREA"] = 1.25e-5  # 50x25 micron squared pixel area in cm^2
+            headers[i]["PXAREA"] = 4.06e-4  # 29x14 milliarcsec squared pixel area in arcsec^2
         else:
-            headers[i]["PXAREA"] = 1.0  # unknown default to 1 cm^2
+            headers[i]["PXAREA"] = 1.0  # unknown default to 1 arcsec^2
+        # Convert PHOTFLAM value from 1arcsec aperture to the pixel area
+        # headers[i]["PHOTFLAM"] *= np.pi / headers[i]["PXAREA"]
     data_array = np.array(data_array, dtype=np.double)
 
     # Prevent negative count value in imported data
@@ -150,7 +152,7 @@ def save_Stokes(
     header["PHOTPLAM"] = (header_stokes["PHOTPLAM"], "Pivot Wavelength")
     header["PHOTBW"] = (header_stokes["PHOTBW"], "RMS Bandwidth of the Filter and Detector")
     header["PHOTFLAM"] = (header_stokes["PHOTFLAM"], "Inverse Sensitivity in DN/sec/cm**2/Angst")
-    header["PXAREA"] = (header_stokes["PXAREA"], "Pixel area in cm**2")
+    header["PXAREA"] = (header_stokes["PXAREA"], "Pixel area in arcsec**2")
     header["EXPTIME"] = (header_stokes["EXPTIME"], "Total exposure time in sec")
     header["PROPOSID"] = (header_stokes["PROPOSID"], "PEP proposal identifier for observation")
     header["TARGNAME"] = (header_stokes["TARGNAME"], "Target name")

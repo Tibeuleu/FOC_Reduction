@@ -676,9 +676,6 @@ def rebin_array(data_array, error_array, headers, pxsize=2, scale="px", operatio
         nw.wcs.crpix /= Dxy
         nw.array_shape = new_shape
         new_header["NAXIS1"], new_header["NAXIS2"] = nw.array_shape
-        # Compute new values of pixel area and flux density conversion factor
-        new_header["PXAREA"] = header["PXAREA"] * (Dxy[0] * Dxy[1])
-        new_header["PHOTFLAM"] = header["PHOTFLAM"] / (Dxy[0] * Dxy[1])
         for key, val in nw.to_header().items():
             new_header.set(key, val)
         new_header["SAMPLING"] = (str(pxsize) + scale, "Resampling performed during reduction")
