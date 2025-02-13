@@ -6,7 +6,7 @@ from sys import path as syspath
 syspath.append(str(Path(__file__).parent.parent))
 
 
-def main(infile, target=None, output_dir=None):
+def main(infile, P_cut=0.99, target=None, display="pf", output_dir=None):
     from os.path import join as pathjoin
 
     import numpy as np
@@ -34,19 +34,22 @@ def main(infile, target=None, output_dir=None):
         Stokes["POL_DEG_DEBIASED"].data[Stokes["POL_DEG_ERR"].data > 0.0] / Stokes["POL_DEG_ERR"].data[Stokes["POL_DEG_ERR"].data > 0.0]
     )
 
-    Stokescentconf, Stokescenter = CenterConf(Stokesconf > 0.99, Stokes["POL_ANG"].data, Stokes["POL_ANG_ERR"].data)
+    if P_cut < 1.0:
+        Stokescentconf, Stokescenter = CenterConf(Stokesconf > P_cut, Stokes["POL_ANG"].data, Stokes["POL_ANG_ERR"].data)
+    else:
+        Stokescentconf, Stokescenter = CenterConf(Stokessnr > P_cut, Stokes["POL_ANG"].data, Stokes["POL_ANG_ERR"].data)
     Stokespos = WCS(Stokes[0].header).pixel_to_world(*Stokescenter)
 
     if target is None:
         target = Stokes[0].header["TARGNAME"]
 
     fig = figure(figsize=(8, 8.5), layout="constrained")
-    fig, ax = polarization_map(Stokes, P_cut=0.99, step_vec=1, scale_vec=3, display="pf", fig=fig, width=0.33, linewidth=0.5)
+    fig, ax = polarization_map(Stokes, P_cut=P_cut, step_vec=1, scale_vec=3, display=display, fig=fig, width=0.33, linewidth=0.5)
 
     ax.plot(*Stokescenter, marker="+", color="k", lw=3)
-    ax.plot(*Stokescenter, marker="+", color="gray", lw=1.5, label="Best confidence for center: {0}".format(Stokespos.to_string("hmsdms")))
+    ax.plot(*Stokescenter, marker="+", color="red", lw=1.5, label="Best confidence for center: {0}".format(Stokespos.to_string("hmsdms")))
     ax.contour(Stokescentconf, [0.01], colors="k", linewidths=3)
-    confcentcont = ax.contour(Stokescentconf, [0.01], colors="gray")
+    confcentcont = ax.contour(Stokescentconf, [0.01], colors="red")
     # confcont = ax.contour(Stokesconf, [0.9905], colors="r")
     # snr3cont = ax.contour(Stokessnr, [3.0], colors="b", linestyles="dashed")
     # snr4cont = ax.contour(Stokessnr, [4.0], colors="b")
@@ -75,7 +78,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Look for the center of emission for a given reduced observation")
     parser.add_argument("-t", "--target", metavar="targetname", required=False, help="the name of the target", type=str, default=None)
     parser.add_argument("-f", "--file", metavar="path", required=False, help="The full or relative path to the data product", type=str, default=None)
+    parser.add_argument("-c", "--pcut", metavar="pcut", required=False, help="The polarization cut for the data mask", type=float, default=0.99)
+    parser.add_argument("-d", "--display", metavar="display", required=False, help="The map on which to display info", type=str, default="pf")
     parser.add_argument("-o", "--output_dir", metavar="directory_path", required=False, help="output directory path for the plots", type=str, default="./data")
     args = parser.parse_args()
-    exitcode = main(infile=args.file, target=args.target, output_dir=args.output_dir)
+    exitcode = main(infile=args.file, P_cut=args.pcut, target=args.target, display=args.display, output_dir=args.output_dir)
     print("Written to: ", exitcode)
