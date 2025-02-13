@@ -88,8 +88,8 @@ def CenterConf(mask, PA, sPA):
         2D matrix of same shape as input containing the confidence on the polarization
         computation between 0 and 1 for 2 parameters of interest (Q and U Stokes fluxes).
     """
-    chi2 = np.full(PA.shape, np.nan)
-    conf = np.full(PA.shape, -1.0)
+    chi2 = np.full(PA.shape, np.nan, dtype=np.float64)
+    conf = np.full(PA.shape, -1.0, dtype=np.float64)
     yy, xx = np.indices(PA.shape)
 
     def ideal(c):
@@ -105,9 +105,9 @@ def CenterConf(mask, PA, sPA):
         chi2[y, x] = chisq((x, y))
 
     from scipy.optimize import minimize
-    from scipy.special import gammainc
+    from scipy.special import gammaincc
 
-    conf[np.isfinite(PA)] = 1.0 - gammainc(0.5, 0.5 * chi2[np.isfinite(PA)])
+    conf[np.isfinite(PA)] = gammaincc(0.5, 0.5 * chi2[np.isfinite(PA)])
     c0 = np.unravel_index(np.argmax(conf), conf.shape)[::-1]
     result = minimize(chisq, c0, bounds=[(0, PA.shape[1]), (0.0, PA.shape[0])])
     if result.success:
