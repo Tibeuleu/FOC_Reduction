@@ -66,7 +66,15 @@ except ImportError:
     from utils import PCconf, princ_angle, rot2D, sci_not
 
 
-def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, plots_folder="", **kwargs):
+def plot_obs(
+    data_array,
+    headers,
+    rectangle=None,
+    shifts=None,
+    savename=None,
+    plots_folder="",
+    **kwargs,
+):
     """
     Plots raw observation imagery with some information on the instrument and
     filters.
@@ -97,7 +105,14 @@ def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, pl
     plt.rcParams.update({"font.size": 10})
     nb_obs = np.max([np.sum([head["filtnam1"] == curr_pol for head in headers]) for curr_pol in ["POL0", "POL60", "POL120"]])
     shape = np.array((3, nb_obs))
-    fig, ax = plt.subplots(shape[0], shape[1], figsize=(3 * shape[1], 3 * shape[0]), layout="compressed", sharex=True, sharey=True)
+    fig, ax = plt.subplots(
+        shape[0],
+        shape[1],
+        figsize=(3 * shape[1], 3 * shape[0]),
+        layout="compressed",
+        sharex=True,
+        sharey=True,
+    )
     used = np.zeros(shape, dtype=bool)
     r_pol = dict(pol0=0, pol60=1, pol120=2)
     c_pol = dict(pol0=0, pol60=0, pol120=0)
@@ -120,8 +135,14 @@ def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, pl
             vmin, vmax = kwargs["vmin"], kwargs["vmax"]
             del kwargs["vmin"], kwargs["vmax"]
         else:
-            vmin, vmax = convert * data[data > 0.0].min() / 10.0, convert * data[data > 0.0].max()
-        for key, value in [["cmap", [["cmap", "inferno"]]], ["norm", [["norm", LogNorm(vmin, vmax)]]]]:
+            vmin, vmax = (
+                convert * data[data > 0.0].min() / 10.0,
+                convert * data[data > 0.0].max(),
+            )
+        for key, value in [
+            ["cmap", [["cmap", "inferno"]]],
+            ["norm", [["norm", LogNorm(vmin, vmax)]]],
+        ]:
             try:
                 _ = kwargs[key]
             except KeyError:
@@ -133,21 +154,64 @@ def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, pl
         if shifts is not None:
             x, y = np.array(data.shape[::-1]) / 2.0 - shifts[i]
             dx, dy = shifts[i]
-            ax_curr.arrow(x, y, dx, dy, length_includes_head=True, width=0.1, head_width=0.3, color="g")
+            ax_curr.arrow(
+                x,
+                y,
+                dx,
+                dy,
+                length_includes_head=True,
+                width=0.1,
+                head_width=0.3,
+                color="g",
+            )
             ax_curr.plot([x, x], [0, data.shape[0] - 1], "--", lw=2, color="g", alpha=0.85)
             ax_curr.plot([0, data.shape[1] - 1], [y, y], "--", lw=2, color="g", alpha=0.85)
         if rectangle is not None:
             x, y, width, height, angle, color = rectangle[i]
             ax_curr.add_patch(Rectangle((x, y), width, height, angle=angle, edgecolor=color, fill=False))
         # position of centroid
-        ax_curr.plot([data.shape[1] / 2, data.shape[1] / 2], [0, data.shape[0] - 1], "--", lw=2, color="b", alpha=0.85)
-        ax_curr.plot([0, data.shape[1] - 1], [data.shape[0] / 2, data.shape[0] / 2], "--", lw=2, color="b", alpha=0.85)
-        ax_curr.annotate(
-            instr + ":" + rootname, color="white", fontsize=10, xy=(0.01, 1.00), xycoords="axes fraction", verticalalignment="top", horizontalalignment="left"
+        ax_curr.plot(
+            [data.shape[1] / 2, data.shape[1] / 2],
+            [0, data.shape[0] - 1],
+            "--",
+            lw=2,
+            color="b",
+            alpha=0.85,
         )
-        ax_curr.annotate(filt, color="white", fontsize=15, xy=(0.01, 0.01), xycoords="axes fraction", verticalalignment="bottom", horizontalalignment="left")
+        ax_curr.plot(
+            [0, data.shape[1] - 1],
+            [data.shape[0] / 2, data.shape[0] / 2],
+            "--",
+            lw=2,
+            color="b",
+            alpha=0.85,
+        )
         ax_curr.annotate(
-            exptime, color="white", fontsize=10, xy=(1.00, 0.01), xycoords="axes fraction", verticalalignment="bottom", horizontalalignment="right"
+            instr + ":" + rootname,
+            color="white",
+            fontsize=10,
+            xy=(0.01, 1.00),
+            xycoords="axes fraction",
+            verticalalignment="top",
+            horizontalalignment="left",
+        )
+        ax_curr.annotate(
+            filt,
+            color="white",
+            fontsize=15,
+            xy=(0.01, 0.01),
+            xycoords="axes fraction",
+            verticalalignment="bottom",
+            horizontalalignment="left",
+        )
+        ax_curr.annotate(
+            exptime,
+            color="white",
+            fontsize=10,
+            xy=(1.00, 0.01),
+            xycoords="axes fraction",
+            verticalalignment="bottom",
+            horizontalalignment="right",
         )
     unused = np.logical_not(used)
     ii, jj = np.indices(shape)
@@ -155,13 +219,26 @@ def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, pl
         fig.delaxes(ax[i][j])
 
     # fig.subplots_adjust(hspace=0.01, wspace=0.01, right=1.02)
-    fig.colorbar(im, ax=ax, location="right", shrink=0.75, aspect=50, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+    fig.colorbar(
+        im,
+        ax=ax,
+        location="right",
+        shrink=0.75,
+        aspect=50,
+        pad=0.025,
+        label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]",
+    )
 
     if savename is not None:
         # fig.suptitle(savename)
         if savename[-4:] not in [".png", ".jpg", ".pdf"]:
             savename += ".pdf"
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
+        fig.savefig(
+            path_join(plots_folder, savename),
+            bbox_inches="tight",
+            dpi=150,
+            facecolor="None",
+        )
     plt.show()
     return 0
 
@@ -220,7 +297,12 @@ def plot_Stokes(Stokes, savename=None, plots_folder=""):
             savename += "_IQU.pdf"
         else:
             savename = savename[:-4] + "_IQU" + savename[-4:]
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
+        fig.savefig(
+            path_join(plots_folder, savename),
+            bbox_inches="tight",
+            dpi=150,
+            facecolor="None",
+        )
     return 0
 
 
@@ -307,7 +389,10 @@ def polarization_map(
 
     # Compute confidence level map
     QN, UN, QN_ERR, UN_ERR = np.full((4, stkI.shape[0], stkI.shape[1]), np.nan)
-    for nflux, sflux in zip([QN, UN, QN_ERR, UN_ERR], [stkQ, stkU, np.sqrt(stk_cov[1, 1]), np.sqrt(stk_cov[2, 2])]):
+    for nflux, sflux in zip(
+        [QN, UN, QN_ERR, UN_ERR],
+        [stkQ, stkU, np.sqrt(stk_cov[1, 1]), np.sqrt(stk_cov[2, 2])],
+    ):
         nflux[stkI > 0.0] = sflux[stkI > 0.0] / stkI[stkI > 0.0]
     confP = PCconf(QN, UN, QN_ERR, UN_ERR)
 
@@ -421,13 +506,32 @@ def polarization_map(
         display = "i"
         if flux_lim is None:
             if mask.sum() > 0.0:
-                vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+                vmin, vmax = (
+                    1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux),
+                    np.max(stkI[stkI > 0.0] * convert_flux),
+                )
             else:
-                vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+                vmin, vmax = (
+                    1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux),
+                    np.max(stkI[stkI > 0.0] * convert_flux),
+                )
         else:
             vmin, vmax = flux_lim
-        im = ax.imshow(stkI * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+        im = ax.imshow(
+            stkI * convert_flux,
+            norm=LogNorm(vmin, vmax),
+            aspect="equal",
+            cmap=kwargs["cmap"],
+            alpha=1.0,
+        )
+        fig.colorbar(
+            im,
+            ax=ax,
+            aspect=30,
+            shrink=0.60,
+            pad=0.025,
+            label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]",
+        )
         levelsI = np.array([0.8, 2.0, 5.0, 10.0, 20.0, 50.0]) / 100.0 * vmax
         print("Flux density contour levels : ", levelsI)
         ax.contour(stkI * convert_flux, levels=levelsI, colors="grey", linewidths=0.5)
@@ -436,16 +540,35 @@ def polarization_map(
         display = "pf"
         if flux_lim is None:
             if mask.sum() > 0.0:
-                vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+                vmin, vmax = (
+                    1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux),
+                    np.max(stkI[stkI > 0.0] * convert_flux),
+                )
                 pfmax = (stkI[mask] * pol[mask] * convert_flux).max()
             else:
-                vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+                vmin, vmax = (
+                    1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux),
+                    np.max(stkI[stkI > 0.0] * convert_flux),
+                )
                 pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
         else:
             vmin, vmax = flux_lim
             pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
-        im = ax.imshow(stkI * convert_flux * pol, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+        im = ax.imshow(
+            stkI * convert_flux * pol,
+            norm=LogNorm(vmin, vmax),
+            aspect="equal",
+            cmap=kwargs["cmap"],
+            alpha=1.0,
+        )
+        fig.colorbar(
+            im,
+            ax=ax,
+            aspect=30,
+            shrink=0.60,
+            pad=0.025,
+            label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]",
+        )
         # levelsPf = np.linspace(0.0175, 0.50, 5) * pfmax
         levelsPf = np.array([1.73, 13.0, 33.0, 66.0]) / 100.0 * pfmax
         print("Polarized flux density contour levels : ", levelsPf)
@@ -454,23 +577,51 @@ def polarization_map(
         # Display polarization degree map
         display = "p"
         vmin, vmax = 0.0, 100.0
-        im = ax.imshow(pol * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        im = ax.imshow(
+            pol * 100.0,
+            vmin=vmin,
+            vmax=vmax,
+            aspect="equal",
+            cmap=kwargs["cmap"],
+            alpha=1.0,
+        )
         fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$P$ [%]")
     elif display.lower() in ["pa", "pang", "pol_ang"]:
         # Display polarization degree map
         display = "pa"
         vmin, vmax = 0.0, 180.0
-        im = ax.imshow(princ_angle(pang), vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        im = ax.imshow(
+            princ_angle(pang),
+            vmin=vmin,
+            vmax=vmax,
+            aspect="equal",
+            cmap=kwargs["cmap"],
+            alpha=1.0,
+        )
         fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$\theta_P$ [°]")
     elif display.lower() in ["s_p", "pol_err", "pol_deg_err"]:
         # Display polarization degree error map
         display = "s_p"
         if (SNRp > P_cut).any():
             vmin, vmax = 0.0, np.max([pol_err[SNRp > P_cut].max(), 1.0]) * 100.0
-            im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0)
+            im = ax.imshow(
+                pol_err * 100.0,
+                vmin=vmin,
+                vmax=vmax,
+                aspect="equal",
+                cmap="inferno_r",
+                alpha=1.0,
+            )
         else:
             vmin, vmax = 0.0, 100.0
-            im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0)
+            im = ax.imshow(
+                pol_err * 100.0,
+                vmin=vmin,
+                vmax=vmax,
+                aspect="equal",
+                cmap="inferno_r",
+                alpha=1.0,
+            )
         fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$\sigma_P$ [%]")
     elif display.lower() in ["s_i", "i_err"]:
         # Display intensity error map
@@ -480,28 +631,67 @@ def polarization_map(
                 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stk_cov[0, 0] > 0.0]) * convert_flux),
                 np.max(np.sqrt(stk_cov[0, 0][stk_cov[0, 0] > 0.0]) * convert_flux),
             )
-            im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap="inferno_r", alpha=1.0)
+            im = ax.imshow(
+                np.sqrt(stk_cov[0, 0]) * convert_flux,
+                norm=LogNorm(vmin, vmax),
+                aspect="equal",
+                cmap="inferno_r",
+                alpha=1.0,
+            )
         else:
-            im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$\sigma_I$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+            im = ax.imshow(
+                np.sqrt(stk_cov[0, 0]) * convert_flux,
+                aspect="equal",
+                cmap=kwargs["cmap"],
+                alpha=1.0,
+            )
+        fig.colorbar(
+            im,
+            ax=ax,
+            aspect=30,
+            shrink=0.60,
+            pad=0.025,
+            label=r"$\sigma_I$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]",
+        )
     elif display.lower() in ["snri"]:
         # Display I_stokes signal-to-noise map
         display = "snri"
         vmin, vmax = 0.0, np.max(SNRi[np.isfinite(SNRi)])
         if vmax * 0.99 > SNRi_cut:
-            im = ax.imshow(SNRi, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+            im = ax.imshow(
+                SNRi,
+                vmin=vmin,
+                vmax=vmax,
+                aspect="equal",
+                cmap=kwargs["cmap"],
+                alpha=1.0,
+            )
             levelsSNRi = np.linspace(SNRi_cut, vmax * 0.99, 5).astype(int)
             print("SNRi contour levels : ", levelsSNRi)
             ax.contour(SNRi, levels=levelsSNRi, colors="grey", linewidths=0.5)
         else:
             im = ax.imshow(SNRi, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
+        fig.colorbar(
+            im,
+            ax=ax,
+            aspect=30,
+            shrink=0.60,
+            pad=0.025,
+            label=r"$I_{Stokes}/\sigma_{I}$",
+        )
     elif display.lower() in ["snr", "snrp"]:
         # Display polarization degree signal-to-noise map
         display = "snrp"
         vmin, vmax = 0.0, np.max(SNRp[np.isfinite(SNRp)])
         if vmax * 0.99 > SNRp_cut:
-            im = ax.imshow(SNRp, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+            im = ax.imshow(
+                SNRp,
+                vmin=vmin,
+                vmax=vmax,
+                aspect="equal",
+                cmap=kwargs["cmap"],
+                alpha=1.0,
+            )
             levelsSNRp = np.linspace(P_cut, vmax * 0.99, 5).astype(int)
             print("SNRp contour levels : ", levelsSNRp)
             ax.contour(SNRp, levels=levelsSNRp, colors="grey", linewidths=0.5)
@@ -520,11 +710,30 @@ def polarization_map(
     else:
         # Defaults to intensity map
         if mask.sum() > 0.0:
-            vmin, vmax = 1.0 * np.mean(np.sqrt(stk_cov[0, 0][mask]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+            vmin, vmax = (
+                1.0 * np.mean(np.sqrt(stk_cov[0, 0][mask]) * convert_flux),
+                np.max(stkI[stkI > 0.0] * convert_flux),
+            )
         else:
-            vmin, vmax = 1.0 * np.mean(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
-        im = ax.imshow(stkI * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA$]")
+            vmin, vmax = (
+                1.0 * np.mean(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux),
+                np.max(stkI[stkI > 0.0] * convert_flux),
+            )
+        im = ax.imshow(
+            stkI * convert_flux,
+            norm=LogNorm(vmin, vmax),
+            aspect="equal",
+            cmap=kwargs["cmap"],
+            alpha=1.0,
+        )
+        fig.colorbar(
+            im,
+            ax=ax,
+            aspect=30,
+            shrink=0.60,
+            pad=0.025,
+            label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA$]",
+        )
 
     # Get integrated flux values from sum
     I_diluted = stkI[data_mask].sum()
@@ -538,7 +747,18 @@ def polarization_map(
 
     plt.rcParams.update({"font.size": 11})
     px_size = wcs.wcs.get_cdelt()[0] * 3600.0
-    px_sc = AnchoredSizeBar(ax.transData, 1.0 / px_size, "1 arcsec", 3, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color)
+    px_sc = AnchoredSizeBar(
+        ax.transData,
+        1.0 / px_size,
+        "1 arcsec",
+        3,
+        pad=0.25,
+        sep=5,
+        borderpad=0.25,
+        frameon=False,
+        size_vertical=0.005,
+        color=font_color,
+    )
     north_dir = AnchoredDirectionArrows(
         ax.transAxes,
         "E",
@@ -563,7 +783,10 @@ def polarization_map(
             step_vec = 1
             scale_vec = 2.0
         X, Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
-        U, V = poldata * np.cos(np.pi / 2.0 + pangdata * np.pi / 180.0), poldata * np.sin(np.pi / 2.0 + pangdata * np.pi / 180.0)
+        U, V = (
+            poldata * np.cos(np.pi / 2.0 + pangdata * np.pi / 180.0),
+            poldata * np.sin(np.pi / 2.0 + pangdata * np.pi / 180.0),
+        )
         ax.quiver(
             X[::step_vec, ::step_vec],
             Y[::step_vec, ::step_vec],
@@ -583,7 +806,16 @@ def polarization_map(
             edgecolor="k",
         )
         pol_sc = AnchoredSizeBar(
-            ax.transData, scale_vec, r"$P$= 100 %", 4, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color
+            ax.transData,
+            scale_vec,
+            r"$P$= 100 %",
+            4,
+            pad=0.25,
+            sep=5,
+            borderpad=0.25,
+            frameon=False,
+            size_vertical=0.005,
+            color=font_color,
         )
 
         ax.add_artist(pol_sc)
@@ -592,7 +824,8 @@ def polarization_map(
 
         ax.annotate(
             r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                pivot_wav, sci_not(I_diluted * convert_flux, I_diluted_err * convert_flux, 2)
+                pivot_wav,
+                sci_not(I_diluted * convert_flux, I_diluted_err * convert_flux, 2),
             )
             + "\n"
             + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_diluted * 100.0, P_diluted_err * 100.0)
@@ -611,7 +844,8 @@ def polarization_map(
             ax.add_artist(north_dir)
         ax.annotate(
             r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                pivot_wav, sci_not(I_diluted * convert_flux, I_diluted_err * convert_flux, 2)
+                pivot_wav,
+                sci_not(I_diluted * convert_flux, I_diluted_err * convert_flux, 2),
             ),
             color="white",
             xy=(0.01, 1.00),
@@ -630,7 +864,12 @@ def polarization_map(
     if savename is not None:
         if savename[-4:] not in [".png", ".jpg", ".pdf"]:
             savename += ".pdf"
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=300, facecolor="None")
+        fig.savefig(
+            path_join(plots_folder, savename),
+            bbox_inches="tight",
+            dpi=300,
+            facecolor="None",
+        )
 
     return fig, ax
 
@@ -666,14 +905,26 @@ class align_maps(object):
             self.other_data = self.other_data[0]
 
         self.map_convert, self.map_unit = (
-            (float(self.map_header["photflam"]), r"$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$")
+            (
+                float(self.map_header["photflam"]),
+                r"$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$",
+            )
             if "PHOTFLAM" in list(self.map_header.keys())
-            else (1.0, self.map_header["bunit"] if "BUNIT" in list(self.map_header.keys()) else "Arbitray Units")
+            else (
+                1.0,
+                self.map_header["bunit"] if "BUNIT" in list(self.map_header.keys()) else "Arbitray Units",
+            )
         )
         self.other_convert, self.other_unit = (
-            (float(self.other_header["photflam"]), r"$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$")
+            (
+                float(self.other_header["photflam"]),
+                r"$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$",
+            )
             if "PHOTFLAM" in list(self.other_header.keys())
-            else (1.0, self.other_header["bunit"] if "BUNIT" in list(self.other_header.keys()) else "Arbitray Units")
+            else (
+                1.0,
+                self.other_header["bunit"] if "BUNIT" in list(self.other_header.keys()) else "Arbitray Units",
+            )
         )
         self.map_observer = (
             "/".join([self.map_header["telescop"], self.map_header["instrume"]]) if "INSTRUME" in list(self.map_header.keys()) else self.map_header["telescop"]
@@ -692,8 +943,14 @@ class align_maps(object):
 
         # Plot the UV map
         other_kwargs = deepcopy(kwargs)
-        vmin, vmax = self.map_data[self.map_data > 0.0].max() / 1e3 * self.map_convert, self.map_data[self.map_data > 0.0].max() * self.map_convert
-        for key, value in [["cmap", [["cmap", "inferno"]]], ["norm", [["norm", LogNorm(vmin, vmax)]]]]:
+        vmin, vmax = (
+            self.map_data[self.map_data > 0.0].max() / 1e3 * self.map_convert,
+            self.map_data[self.map_data > 0.0].max() * self.map_convert,
+        )
+        for key, value in [
+            ["cmap", [["cmap", "inferno"]]],
+            ["norm", [["norm", LogNorm(vmin, vmax)]]],
+        ]:
             try:
                 _ = kwargs[key]
             except KeyError:
@@ -781,8 +1038,14 @@ class align_maps(object):
         self.map_ax.set_ylabel(label="Declination (J2000)", labelpad=-1)
 
         # Plot the other map
-        vmin, vmax = self.other_data[self.other_data > 0.0].max() / 1e3 * self.other_convert, self.other_data[self.other_data > 0.0].max() * self.other_convert
-        for key, value in [["cmap", [["cmap", "inferno"]]], ["norm", [["norm", LogNorm(vmin, vmax)]]]]:
+        vmin, vmax = (
+            self.other_data[self.other_data > 0.0].max() / 1e3 * self.other_convert,
+            self.other_data[self.other_data > 0.0].max() * self.other_convert,
+        )
+        for key, value in [
+            ["cmap", [["cmap", "inferno"]]],
+            ["norm", [["norm", LogNorm(vmin, vmax)]]],
+        ]:
             try:
                 _ = other_kwargs[key]
             except KeyError:
@@ -886,7 +1149,10 @@ class align_maps(object):
         else:
             self.map_wcs.wcs.crpix = np.array(self.cr_map.get_data()) + (1.0, 1.0)
         if np.array(self.cr_other.get_data()).shape == (2, 1):
-            self.other_wcs.wcs.crpix = np.array(self.cr_other.get_data())[:, 0] + (1.0, 1.0)
+            self.other_wcs.wcs.crpix = np.array(self.cr_other.get_data())[:, 0] + (
+                1.0,
+                1.0,
+            )
         else:
             self.other_wcs.wcs.crpix = np.array(self.cr_other.get_data()) + (1.0, 1.0)
         self.map_wcs.wcs.crval = np.array(self.map_wcs.pixel_to_world_values(*self.map_wcs.wcs.crpix))
@@ -938,7 +1204,15 @@ class overplot_radio(align_maps):
     Inherit from class align_maps in order to get the same WCS on both maps.
     """
 
-    def overplot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, scale_vec=2, savename=None, **kwargs):
+    def overplot(
+        self,
+        levels=None,
+        P_cut=0.99,
+        SNRi_cut=1.0,
+        scale_vec=2,
+        savename=None,
+        **kwargs,
+    ):
         self.Stokes_UV = self.map
         self.wcs_UV = self.map_wcs
         # Get Data
@@ -952,7 +1226,10 @@ class overplot_radio(align_maps):
         pang = self.Stokes_UV["POL_ANG"].data
         # Compute confidence level map
         QN, UN, QN_ERR, UN_ERR = np.full((4, stkI.shape[0], stkI.shape[1]), np.nan)
-        for nflux, sflux in zip([QN, UN, QN_ERR, UN_ERR], [stkQ, stkU, np.sqrt(stk_cov[1, 1]), np.sqrt(stk_cov[2, 2])]):
+        for nflux, sflux in zip(
+            [QN, UN, QN_ERR, UN_ERR],
+            [stkQ, stkU, np.sqrt(stk_cov[1, 1]), np.sqrt(stk_cov[2, 2])],
+        ):
             nflux[stkI > 0.0] = sflux[stkI > 0.0] / stkI[stkI > 0.0]
         confP = PCconf(QN, UN, QN_ERR, UN_ERR)
 
@@ -984,8 +1261,14 @@ class overplot_radio(align_maps):
         self.fig_overplot.subplots_adjust(hspace=0, wspace=0, bottom=0.1, left=0.1, top=0.8, right=1)
 
         # Display UV intensity map with polarization vectors
-        vmin, vmax = stkI[np.isfinite(stkI)].max() / 1e3 * self.map_convert, stkI[np.isfinite(stkI)].max() * self.map_convert
-        for key, value in [["cmap", [["cmap", "inferno"]]], ["norm", [["norm", LogNorm(vmin, vmax)]]]]:
+        vmin, vmax = (
+            stkI[np.isfinite(stkI)].max() / 1e3 * self.map_convert,
+            stkI[np.isfinite(stkI)].max() * self.map_convert,
+        )
+        for key, value in [
+            ["cmap", [["cmap", "inferno"]]],
+            ["norm", [["norm", LogNorm(vmin, vmax)]]],
+        ]:
             try:
                 _ = kwargs[key]
             except KeyError:
@@ -1020,9 +1303,19 @@ class overplot_radio(align_maps):
         else:
             self.ax_overplot.set_facecolor("white")
             font_color = "black"
-        self.im = self.ax_overplot.imshow(stkI * self.map_convert, aspect="equal", label="{0:s} observation".format(self.map_observer), **kwargs)
+        self.im = self.ax_overplot.imshow(
+            stkI * self.map_convert,
+            aspect="equal",
+            label="{0:s} observation".format(self.map_observer),
+            **kwargs,
+        )
         self.cbar = self.fig_overplot.colorbar(
-            self.im, ax=self.ax_overplot, aspect=50, shrink=0.75, pad=0.025, label=r"$F_{{\lambda}}$ [{0:s}]".format(self.map_unit)
+            self.im,
+            ax=self.ax_overplot,
+            aspect=50,
+            shrink=0.75,
+            pad=0.025,
+            label=r"$F_{{\lambda}}$ [{0:s}]".format(self.map_unit),
         )
 
         # Display full size polarization vectors
@@ -1033,7 +1326,10 @@ class overplot_radio(align_maps):
             self.scale_vec = scale_vec
         step_vec = 1
         self.X, self.Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
-        self.U, self.V = pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0)
+        self.U, self.V = (
+            pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0),
+            pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0),
+        )
         self.Q = self.ax_overplot.quiver(
             self.X[::step_vec, ::step_vec],
             self.Y[::step_vec, ::step_vec],
@@ -1070,7 +1366,11 @@ class overplot_radio(align_maps):
         self.ax_overplot.set_ylabel(label="Declination (J2000)", labelpad=-1)
         self.fig_overplot.suptitle(
             "{0:s} polarization map of {1:s} overplotted with {2:s} {3:.2f}GHz map in {4:s}.".format(
-                self.map_observer, obj, self.other_observer, other_freq * 1e-9, self.other_unit
+                self.map_observer,
+                obj,
+                self.other_observer,
+                other_freq * 1e-9,
+                self.other_unit,
             ),
             wrap=True,
         )
@@ -1124,7 +1424,9 @@ class overplot_radio(align_maps):
 
         (self.cr_map,) = self.ax_overplot.plot(*(self.map_wcs.celestial.wcs.crpix - (1.0, 1.0)), "r+")
         (self.cr_other,) = self.ax_overplot.plot(
-            *(self.other_wcs.celestial.wcs.crpix - (1.0, 1.0)), "g+", transform=self.ax_overplot.get_transform(self.other_wcs)
+            *(self.other_wcs.celestial.wcs.crpix - (1.0, 1.0)),
+            "g+",
+            transform=self.ax_overplot.get_transform(self.other_wcs),
         )
 
         handles, labels = self.ax_overplot.get_legend_handles_labels()
@@ -1134,7 +1436,12 @@ class overplot_radio(align_maps):
         labels.append("{0:s} contour".format(self.other_observer))
         handles.append(Rectangle((0, 0), 1, 1, fill=False, lw=2, ec=other_cont.get_edgecolor()[0]))
         self.legend = self.ax_overplot.legend(
-            handles=handles, labels=labels, bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0
+            handles=handles,
+            labels=labels,
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc="lower left",
+            mode="expand",
+            borderaxespad=0.0,
         )
 
         if savename is not None:
@@ -1157,7 +1464,16 @@ class overplot_chandra(align_maps):
     Inherit from class align_maps in order to get the same WCS on both maps.
     """
 
-    def overplot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, scale_vec=2, zoom=1, savename=None, **kwargs):
+    def overplot(
+        self,
+        levels=None,
+        P_cut=0.99,
+        SNRi_cut=1.0,
+        scale_vec=2,
+        zoom=1,
+        savename=None,
+        **kwargs,
+    ):
         self.Stokes_UV = self.map
         self.wcs_UV = self.map_wcs
         # Get Data
@@ -1171,7 +1487,10 @@ class overplot_chandra(align_maps):
         pang = self.Stokes_UV["POL_ANG"].data
         # Compute confidence level map
         QN, UN, QN_ERR, UN_ERR = np.full((4, stkI.shape[0], stkI.shape[1]), np.nan)
-        for nflux, sflux in zip([QN, UN, QN_ERR, UN_ERR], [stkQ, stkU, np.sqrt(stk_cov[1, 1]), np.sqrt(stk_cov[2, 2])]):
+        for nflux, sflux in zip(
+            [QN, UN, QN_ERR, UN_ERR],
+            [stkQ, stkU, np.sqrt(stk_cov[1, 1]), np.sqrt(stk_cov[2, 2])],
+        ):
             nflux[stkI > 0.0] = sflux[stkI > 0.0] / stkI[stkI > 0.0]
         confP = PCconf(QN, UN, QN_ERR, UN_ERR)
 
@@ -1202,8 +1521,14 @@ class overplot_chandra(align_maps):
         self.fig_overplot.subplots_adjust(hspace=0, wspace=0, bottom=0.1, left=0.1, top=0.8, right=1)
 
         # Display UV intensity map with polarization vectors
-        vmin, vmax = stkI[np.isfinite(stkI)].max() / 1e3 * self.map_convert, stkI[np.isfinite(stkI)].max() * self.map_convert
-        for key, value in [["cmap", [["cmap", "inferno"]]], ["norm", [["norm", LogNorm(vmin, vmax)]]]]:
+        vmin, vmax = (
+            stkI[np.isfinite(stkI)].max() / 1e3 * self.map_convert,
+            stkI[np.isfinite(stkI)].max() * self.map_convert,
+        )
+        for key, value in [
+            ["cmap", [["cmap", "inferno"]]],
+            ["norm", [["norm", LogNorm(vmin, vmax)]]],
+        ]:
             try:
                 _ = kwargs[key]
             except KeyError:
@@ -1240,7 +1565,12 @@ class overplot_chandra(align_maps):
             font_color = "black"
         self.im = self.ax_overplot.imshow(stkI * self.map_convert, aspect="equal", **kwargs)
         self.cbar = self.fig_overplot.colorbar(
-            self.im, ax=self.ax_overplot, aspect=50, shrink=0.75, pad=0.025, label=r"$F_{{\lambda}}$ [{0:s}]".format(self.map_unit)
+            self.im,
+            ax=self.ax_overplot,
+            aspect=50,
+            shrink=0.75,
+            pad=0.025,
+            label=r"$F_{{\lambda}}$ [{0:s}]".format(self.map_unit),
         )
 
         # Display full size polarization vectors
@@ -1251,7 +1581,10 @@ class overplot_chandra(align_maps):
             self.scale_vec = scale_vec
         step_vec = 1
         self.X, self.Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
-        self.U, self.V = pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0)
+        self.U, self.V = (
+            pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0),
+            pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0),
+        )
         self.Q = self.ax_overplot.quiver(
             self.X[::step_vec, ::step_vec],
             self.Y[::step_vec, ::step_vec],
@@ -1279,14 +1612,18 @@ class overplot_chandra(align_maps):
         elif zoom != 1:
             levels *= other_data.max() / self.other_data.max()
         other_cont = self.ax_overplot.contour(
-            other_data * self.other_convert, transform=self.ax_overplot.get_transform(other_wcs), levels=levels, colors="grey"
+            other_data * self.other_convert,
+            transform=self.ax_overplot.get_transform(other_wcs),
+            levels=levels,
+            colors="grey",
         )
         self.ax_overplot.clabel(other_cont, inline=True, fontsize=8)
 
         self.ax_overplot.set_xlabel(label="Right Ascension (J2000)")
         self.ax_overplot.set_ylabel(label="Declination (J2000)", labelpad=-1)
         self.fig_overplot.suptitle(
-            "{0:s} polarization map of {1:s} overplotted\nwith {2:s} contour in counts.".format(self.map_observer, obj, self.other_observer), wrap=True
+            "{0:s} polarization map of {1:s} overplotted\nwith {2:s} contour in counts.".format(self.map_observer, obj, self.other_observer),
+            wrap=True,
         )
 
         # Display pixel scale and North direction
@@ -1337,7 +1674,11 @@ class overplot_chandra(align_maps):
         self.ax_overplot.add_artist(pol_sc)
 
         (self.cr_map,) = self.ax_overplot.plot(*(self.map_wcs.celestial.wcs.crpix - (1.0, 1.0)), "r+")
-        (self.cr_other,) = self.ax_overplot.plot(*(other_wcs.celestial.wcs.crpix - (1.0, 1.0)), "g+", transform=self.ax_overplot.get_transform(other_wcs))
+        (self.cr_other,) = self.ax_overplot.plot(
+            *(other_wcs.celestial.wcs.crpix - (1.0, 1.0)),
+            "g+",
+            transform=self.ax_overplot.get_transform(other_wcs),
+        )
         handles, labels = self.ax_overplot.get_legend_handles_labels()
         handles[np.argmax([li == "{0:s} polarization map".format(self.map_observer) for li in labels])] = FancyArrowPatch(
             (0, 0), (0, 1), arrowstyle="-", fc="w", ec="k", lw=2
@@ -1345,7 +1686,12 @@ class overplot_chandra(align_maps):
         labels.append("{0:s} contour in counts".format(self.other_observer))
         handles.append(Rectangle((0, 0), 1, 1, fill=False, lw=2, ec=other_cont.get_edgecolor()[0]))
         self.legend = self.ax_overplot.legend(
-            handles=handles, labels=labels, bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0
+            handles=handles,
+            labels=labels,
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc="lower left",
+            mode="expand",
+            borderaxespad=0.0,
         )
 
         if savename is not None:
@@ -1358,7 +1704,14 @@ class overplot_chandra(align_maps):
     def plot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, zoom=1, savename=None, **kwargs) -> None:
         while not self.aligned:
             self.align()
-        self.overplot(levels=levels, P_cut=P_cut, SNRi_cut=SNRi_cut, zoom=zoom, savename=savename, **kwargs)
+        self.overplot(
+            levels=levels,
+            P_cut=P_cut,
+            SNRi_cut=SNRi_cut,
+            zoom=zoom,
+            savename=savename,
+            **kwargs,
+        )
         plt.show(block=True)
 
 
@@ -1368,7 +1721,17 @@ class overplot_pol(align_maps):
     Inherit from class align_maps in order to get the same WCS on both maps.
     """
 
-    def overplot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, step_vec=1, scale_vec=2.0, disptype="i", savename=None, **kwargs):
+    def overplot(
+        self,
+        levels=None,
+        P_cut=0.99,
+        SNRi_cut=1.0,
+        step_vec=1,
+        scale_vec=2.0,
+        disptype="i",
+        savename=None,
+        **kwargs,
+    ):
         self.Stokes_UV = self.map
         self.wcs_UV = self.map_wcs
         # Get Data
@@ -1382,7 +1745,10 @@ class overplot_pol(align_maps):
         pang = self.Stokes_UV["POL_ANG"].data
         # Compute confidence level map
         QN, UN, QN_ERR, UN_ERR = np.full((4, stkI.shape[0], stkI.shape[1]), np.nan)
-        for nflux, sflux in zip([QN, UN, QN_ERR, UN_ERR], [stkQ, stkU, np.sqrt(stk_cov[1, 1]), np.sqrt(stk_cov[2, 2])]):
+        for nflux, sflux in zip(
+            [QN, UN, QN_ERR, UN_ERR],
+            [stkQ, stkU, np.sqrt(stk_cov[1, 1]), np.sqrt(stk_cov[2, 2])],
+        ):
             nflux[stkI > 0.0] = sflux[stkI > 0.0] / stkI[stkI > 0.0]
         confP = PCconf(QN, UN, QN_ERR, UN_ERR)
 
@@ -1406,13 +1772,19 @@ class overplot_pol(align_maps):
         ratiox = max(int(stkI.shape[1] / stkI.shape[0]), 1)
         ratioy = max(int(stkI.shape[0] / stkI.shape[1]), 1)
         self.px_scale = self.wcs_UV.wcs.get_cdelt()[0] / self.other_wcs.wcs.get_cdelt()[0]
-        self.fig_overplot, self.ax_overplot = plt.subplots(figsize=(10 * ratiox, 12 * ratioy), subplot_kw=dict(projection=self.other_wcs))
+        self.fig_overplot, self.ax_overplot = plt.subplots(
+            figsize=(10 * ratiox, 12 * ratioy),
+            subplot_kw=dict(projection=self.other_wcs),
+        )
         self.fig_overplot.subplots_adjust(hspace=0, wspace=0, bottom=0.1, left=0.1, top=0.80, right=1.02)
 
         self.ax_overplot.set_xlabel(label="Right Ascension (J2000)")
         self.ax_overplot.set_ylabel(label="Declination (J2000)", labelpad=-1)
         # Display "other" intensity map
-        vmin, vmax = other_data[other_data > 0.0].max() / 1e3 * self.other_convert, other_data[other_data > 0.0].max() * self.other_convert
+        vmin, vmax = (
+            other_data[other_data > 0.0].max() / 1e3 * self.other_convert,
+            other_data[other_data > 0.0].max() * self.other_convert,
+        )
         for key, value in [
             ["cmap", [["cmap", "inferno"]]],
             ["norm", [["vmin", vmin], ["vmax", vmax]]],
@@ -1420,7 +1792,9 @@ class overplot_pol(align_maps):
             ["linewidth", [["linewidth", 0.3 * self.px_scale]]],
         ]:
             try:
-                _ = kwargs[key]
+                test = kwargs[key]
+                if isinstance(test, LogNorm):
+                    kwargs[key] = LogNorm(vmin, vmax)
             except KeyError:
                 for key_i, val_i in value:
                     kwargs[key_i] = val_i
@@ -1453,11 +1827,30 @@ class overplot_pol(align_maps):
         else:
             self.ax_overplot.set_facecolor("white")
             font_color = "black"
-        self.im = self.ax_overplot.imshow(
-            other_data * self.other_convert, alpha=1.0, label="{0:s} observation".format(self.other_observer), cmap=kwargs["cmap"], norm=kwargs["norm"]
-        )
+        if hasattr(kwargs, "norm"):
+            self.im = self.ax_overplot.imshow(
+                other_data * self.other_convert,
+                alpha=1.0,
+                label="{0:s} observation".format(self.other_observer),
+                cmap=kwargs["cmap"],
+                norm=kwargs["norm"],
+            )
+        else:
+            self.im = self.ax_overplot.imshow(
+                other_data * self.other_convert,
+                alpha=1.0,
+                label="{0:s} observation".format(self.other_observer),
+                cmap=kwargs["cmap"],
+                vmin=kwargs["vmin"],
+                vmax=kwargs["vmax"],
+            )
         self.cbar = self.fig_overplot.colorbar(
-            self.im, ax=self.ax_overplot, aspect=80, shrink=0.75, pad=0.025, label=r"$F_{{\lambda}}$ [{0:s}]".format(self.other_unit)
+            self.im,
+            ax=self.ax_overplot,
+            aspect=80,
+            shrink=0.75,
+            pad=0.025,
+            label=r"$F_{{\lambda}}$ [{0:s}]".format(self.other_unit),
         )
 
         # Display full size polarization vectors
@@ -1470,7 +1863,10 @@ class overplot_pol(align_maps):
             else:
                 self.scale_vec = scale_vec * self.px_scale
             self.X, self.Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
-            self.U, self.V = pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0)
+            self.U, self.V = (
+                pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0),
+                pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0),
+            )
             self.Q = self.ax_overplot.quiver(
                 self.X[::step_vec, ::step_vec],
                 self.Y[::step_vec, ::step_vec],
@@ -1499,26 +1895,44 @@ class overplot_pol(align_maps):
             if levels is None:
                 levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(pol[stkI > 0.0])
             cont_stk = self.ax_overplot.contour(
-                pol * 100.0, levels=levels * 100.0, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
+                pol * 100.0,
+                levels=levels * 100.0,
+                colors="grey",
+                alpha=0.75,
+                transform=self.ax_overplot.get_transform(self.wcs_UV),
             )
         if disptype.lower() == "pf":
             disptypestr = "polarized flux"
             if levels is None:
                 levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0] * pol[stkI > 0.0]) * self.map_convert
             cont_stk = self.ax_overplot.contour(
-                stkI * pol * self.map_convert, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
+                stkI * pol * self.map_convert,
+                levels=levels,
+                colors="grey",
+                alpha=0.75,
+                transform=self.ax_overplot.get_transform(self.wcs_UV),
             )
         if disptype.lower() == "snri":
             disptypestr = "Stokes I signal-to-noise"
             if levels is None:
                 levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(SNRi[stk_cov[0, 0] > 0.0])
-            cont_stk = self.ax_overplot.contour(SNRi, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV))
+            cont_stk = self.ax_overplot.contour(
+                SNRi,
+                levels=levels,
+                colors="grey",
+                alpha=0.75,
+                transform=self.ax_overplot.get_transform(self.wcs_UV),
+            )
         else:  # default to intensity contours
             disptypestr = "Stokes I"
             if levels is None:
                 levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0]) * self.map_convert
             cont_stk = self.ax_overplot.contour(
-                stkI * self.map_convert, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
+                stkI * self.map_convert,
+                levels=levels,
+                colors="grey",
+                alpha=0.75,
+                transform=self.ax_overplot.get_transform(self.wcs_UV),
             )
         # self.ax_overplot.clabel(cont_stk, inline=False, colors="k", fontsize=7)
 
@@ -1572,7 +1986,11 @@ class overplot_pol(align_maps):
             )
             self.ax_overplot.add_artist(pol_sc)
 
-        (self.cr_map,) = self.ax_overplot.plot(*(self.map_wcs.celestial.wcs.crpix - (1.0, 1.0)), "r+", transform=self.ax_overplot.get_transform(self.wcs_UV))
+        (self.cr_map,) = self.ax_overplot.plot(
+            *(self.map_wcs.celestial.wcs.crpix - (1.0, 1.0)),
+            "r+",
+            transform=self.ax_overplot.get_transform(self.wcs_UV),
+        )
         (self.cr_other,) = self.ax_overplot.plot(*(self.other_wcs.celestial.wcs.crpix - (1.0, 1.0)), "g+")
 
         if "PHOTPLAM" in list(self.other_header.keys()):
@@ -1590,7 +2008,12 @@ class overplot_pol(align_maps):
         labels.append("{0:s} {1:s} contour".format(self.map_observer, disptypestr))
         handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=cont_stk.get_edgecolor()[0]))
         self.legend = self.ax_overplot.legend(
-            handles=handles, labels=labels, bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0
+            handles=handles,
+            labels=labels,
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc="lower left",
+            mode="expand",
+            borderaxespad=0.0,
         )
 
         self.fig_overplot.suptitle(
@@ -1605,10 +2028,29 @@ class overplot_pol(align_maps):
 
         self.fig_overplot.canvas.draw()
 
-    def plot(self, levels=None, P_cut=0.99, SNRi_cut=1.0, step_vec=1, scale_vec=2.0, disptype="i", savename=None, **kwargs) -> None:
+    def plot(
+        self,
+        levels=None,
+        P_cut=0.99,
+        SNRi_cut=1.0,
+        step_vec=1,
+        scale_vec=2.0,
+        disptype="i",
+        savename=None,
+        **kwargs,
+    ) -> None:
         while not self.aligned:
             self.align()
-        self.overplot(levels=levels, P_cut=P_cut, SNRi_cut=SNRi_cut, step_vec=step_vec, scale_vec=scale_vec, disptype=disptype, savename=savename, **kwargs)
+        self.overplot(
+            levels=levels,
+            P_cut=P_cut,
+            SNRi_cut=SNRi_cut,
+            step_vec=step_vec,
+            scale_vec=scale_vec,
+            disptype=disptype,
+            savename=savename,
+            **kwargs,
+        )
         plt.show(block=True)
 
     def add_vector(self, position="center", pol_deg=1.0, pol_ang=0.0, **kwargs):
@@ -1617,7 +2059,10 @@ class overplot_pol(align_maps):
         if isinstance(position, SkyCoord):
             position = self.other_wcs.world_to_pixel(position)
 
-        u, v = pol_deg * np.cos(np.radians(pol_ang) + np.pi / 2.0), pol_deg * np.sin(np.radians(pol_ang) + np.pi / 2.0)
+        u, v = (
+            pol_deg * np.cos(np.radians(pol_ang) + np.pi / 2.0),
+            pol_deg * np.sin(np.radians(pol_ang) + np.pi / 2.0),
+        )
         for key, value in [
             ["scale", [["scale", 1.0 / self.scale_vec]]],
             ["width", [["width", 0.5 * self.px_scale]]],
@@ -1630,7 +2075,10 @@ class overplot_pol(align_maps):
             except KeyError:
                 for key_i, val_i in value:
                     kwargs[key_i] = val_i
-        handles, labels = self.legend.legend_handles, [l.get_text() for l in self.legend.texts]
+        handles, labels = (
+            self.legend.legend_handles,
+            [l.get_text() for l in self.legend.texts],
+        )
         new_vec = self.ax_overplot.quiver(
             *position,
             u,
@@ -1648,7 +2096,13 @@ class overplot_pol(align_maps):
         labels.append(new_vec.get_label())
         self.legend.remove()
         self.legend = self.ax_overplot.legend(
-            title=self.legend_title, handles=handles, labels=labels, bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0
+            title=self.legend_title,
+            handles=handles,
+            labels=labels,
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc="lower left",
+            mode="expand",
+            borderaxespad=0.0,
         )
         self.fig_overplot.canvas.draw()
         return new_vec
@@ -1667,7 +2121,17 @@ class align_pol(object):
 
         self.kwargs = kwargs
 
-    def single_plot(self, curr_map, wcs, v_lim=None, ax_lim=None, P_cut=3.0, SNRi_cut=3.0, savename=None, **kwargs):
+    def single_plot(
+        self,
+        curr_map,
+        wcs,
+        v_lim=None,
+        ax_lim=None,
+        P_cut=3.0,
+        SNRi_cut=3.0,
+        savename=None,
+        **kwargs,
+    ):
         # Get data
         stkI = curr_map["I_STOKES"].data
         stk_cov = curr_map["IQU_COV_MATRIX"].data
@@ -1716,7 +2180,10 @@ class align_pol(object):
         else:
             vmin, vmax = v_lim * convert_flux
 
-        for key, value in [["cmap", [["cmap", "inferno"]]], ["norm", [["vmin", vmin], ["vmax", vmax]]]]:
+        for key, value in [
+            ["cmap", [["cmap", "inferno"]]],
+            ["norm", [["vmin", vmin], ["vmax", vmax]]],
+        ]:
             try:
                 test = kwargs[key]
                 if isinstance(test, LogNorm):
@@ -1726,10 +2193,28 @@ class align_pol(object):
                     kwargs[key_i] = val_i
 
         im = ax.imshow(stkI * convert_flux, aspect="equal", **kwargs)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+        fig.colorbar(
+            im,
+            ax=ax,
+            aspect=50,
+            shrink=0.75,
+            pad=0.025,
+            label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]",
+        )
 
         px_size = wcs.wcs.get_cdelt()[0] * 3600.0
-        px_sc = AnchoredSizeBar(ax.transData, 1.0 / px_size, "1 arcsec", 3, pad=0.5, sep=5, borderpad=0.5, frameon=False, size_vertical=0.005, color="w")
+        px_sc = AnchoredSizeBar(
+            ax.transData,
+            1.0 / px_size,
+            "1 arcsec",
+            3,
+            pad=0.5,
+            sep=5,
+            borderpad=0.5,
+            frameon=False,
+            size_vertical=0.005,
+            color="w",
+        )
         ax.add_artist(px_sc)
 
         north_dir = AnchoredDirectionArrows(
@@ -1754,7 +2239,10 @@ class align_pol(object):
 
         step_vec = 1
         X, Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
-        U, V = pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0)
+        U, V = (
+            pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0),
+            pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0),
+        )
         ax.quiver(
             X[::step_vec, ::step_vec],
             Y[::step_vec, ::step_vec],
@@ -1772,7 +2260,18 @@ class align_pol(object):
             linewidth=0.75,
             color="w",
         )
-        pol_sc = AnchoredSizeBar(ax.transData, 2.0, r"$P$= 100 %", 4, pad=0.5, sep=5, borderpad=0.5, frameon=False, size_vertical=0.005, color="w")
+        pol_sc = AnchoredSizeBar(
+            ax.transData,
+            2.0,
+            r"$P$= 100 %",
+            4,
+            pad=0.5,
+            sep=5,
+            borderpad=0.5,
+            frameon=False,
+            size_vertical=0.005,
+            color="w",
+        )
         ax.add_artist(pol_sc)
 
         if "PHOTPLAM" in list(curr_map[0].header.keys()):
@@ -1807,7 +2306,17 @@ class align_pol(object):
             np.min(
                 [
                     np.min(
-                        curr_map[0].data[curr_map[0].data > SNRi_cut * np.max([eps * np.ones(curr_map[0].data.shape), np.sqrt(curr_map[3].data[0, 0])], axis=0)]
+                        curr_map[0].data[
+                            curr_map[0].data
+                            > SNRi_cut
+                            * np.max(
+                                [
+                                    eps * np.ones(curr_map[0].data.shape),
+                                    np.sqrt(curr_map[3].data[0, 0]),
+                                ],
+                                axis=0,
+                            )
+                        ]
                     )
                     for curr_map in self.other_maps
                 ]
@@ -1816,7 +2325,19 @@ class align_pol(object):
         )
         vmax = np.max(
             [
-                np.max(curr_map[0].data[curr_map[0].data > SNRi_cut * np.max([eps * np.ones(curr_map[0].data.shape), np.sqrt(curr_map[3].data[0, 0])], axis=0)])
+                np.max(
+                    curr_map[0].data[
+                        curr_map[0].data
+                        > SNRi_cut
+                        * np.max(
+                            [
+                                eps * np.ones(curr_map[0].data.shape),
+                                np.sqrt(curr_map[3].data[0, 0]),
+                            ],
+                            axis=0,
+                        )
+                    ]
+                )
                 for curr_map in self.other_maps
             ]
         )
@@ -1826,7 +2347,15 @@ class align_pol(object):
                     vmin,
                     np.min(
                         self.ref_map[0].data[
-                            self.ref_map[0].data > SNRi_cut * np.max([eps * np.ones(self.ref_map[0].data.shape), np.sqrt(self.ref_map[3].data[0, 0])], axis=0)
+                            self.ref_map[0].data
+                            > SNRi_cut
+                            * np.max(
+                                [
+                                    eps * np.ones(self.ref_map[0].data.shape),
+                                    np.sqrt(self.ref_map[3].data[0, 0]),
+                                ],
+                                axis=0,
+                            )
                         ]
                     ),
                 ]
@@ -1838,20 +2367,43 @@ class align_pol(object):
                 vmax,
                 np.max(
                     self.ref_map[0].data[
-                        self.ref_map[0].data > SNRi_cut * np.max([eps * np.ones(self.ref_map[0].data.shape), np.sqrt(self.ref_map[3].data[0, 0])], axis=0)
+                        self.ref_map[0].data
+                        > SNRi_cut
+                        * np.max(
+                            [
+                                eps * np.ones(self.ref_map[0].data.shape),
+                                np.sqrt(self.ref_map[3].data[0, 0]),
+                            ],
+                            axis=0,
+                        )
                     ]
                 ),
             ]
         )
         v_lim = np.array([vmin, vmax])
 
-        fig, ax = self.single_plot(self.ref_map, self.wcs, v_lim=v_lim, P_cut=P_cut, SNRi_cut=SNRi_cut, savename=savename + "_0", **kwargs)
+        fig, ax = self.single_plot(
+            self.ref_map,
+            self.wcs,
+            v_lim=v_lim,
+            P_cut=P_cut,
+            SNRi_cut=SNRi_cut,
+            savename=savename + "_0",
+            **kwargs,
+        )
         x_lim, y_lim = ax.get_xlim(), ax.get_ylim()
         ax_lim = np.array([self.wcs.pixel_to_world(x_lim[i], y_lim[i]) for i in range(len(x_lim))])
 
         for i, curr_map in enumerate(self.other_maps):
             self.single_plot(
-                curr_map, self.wcs_other[i], v_lim=v_lim, ax_lim=ax_lim, P_cut=P_cut, SNRi_cut=SNRi_cut, savename=savename + "_" + str(i + 1), **kwargs
+                curr_map,
+                self.wcs_other[i],
+                v_lim=v_lim,
+                ax_lim=ax_lim,
+                P_cut=P_cut,
+                SNRi_cut=SNRi_cut,
+                savename=savename + "_" + str(i + 1),
+                **kwargs,
             )
 
 
@@ -1918,7 +2470,10 @@ class crop_map(object):
         else:
             kwargs = {**self.kwargs, **kwargs}
 
-        vmin, vmax = np.min(data[data > 0.0] * convert_flux), np.max(data[data > 0.0] * convert_flux)
+        vmin, vmax = (
+            np.min(data[data > 0.0] * convert_flux),
+            np.max(data[data > 0.0] * convert_flux),
+        )
         for key, value in [
             ["cmap", [["cmap", "inferno"]]],
             ["origin", [["origin", "lower"]]],
@@ -2131,9 +2686,15 @@ class crop_Stokes(crop_map):
             if dataset.header["FILENAME"][-4:] != "crop":
                 dataset.header["FILENAME"] += "_crop"
             dataset.header["P_int"] = (P_diluted, "Integrated polarization degree")
-            dataset.header["sP_int"] = (np.ceil(P_diluted_err * 1000.0) / 1000.0, "Integrated polarization degree error")
+            dataset.header["sP_int"] = (
+                np.ceil(P_diluted_err * 1000.0) / 1000.0,
+                "Integrated polarization degree error",
+            )
             dataset.header["PA_int"] = (PA_diluted, "Integrated polarization angle")
-            dataset.header["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
+            dataset.header["sPA_int"] = (
+                np.ceil(PA_diluted_err * 10.0) / 10.0,
+                "Integrated polarization angle error",
+            )
         self.fig.canvas.draw_idle()
 
     @property
@@ -2162,7 +2723,14 @@ class image_lasso_selector(object):
             self.ax = ax
             self.mask_alpha = 0.1
             self.embedded = True
-        self.displayed = self.ax.imshow(self.img, vmin=self.vmin, vmax=self.vmax, aspect="equal", cmap="inferno", alpha=self.mask_alpha)
+        self.displayed = self.ax.imshow(
+            self.img,
+            vmin=self.vmin,
+            vmax=self.vmax,
+            aspect="equal",
+            cmap="inferno",
+            alpha=self.mask_alpha,
+        )
         plt.ion()
 
         lineprops = {"color": "grey", "linewidth": 1, "alpha": 0.8}
@@ -2191,7 +2759,14 @@ class image_lasso_selector(object):
 
     def update_mask(self):
         self.displayed.remove()
-        self.displayed = self.ax.imshow(self.img, vmin=self.vmin, vmax=self.vmax, aspect="equal", cmap="inferno", alpha=self.mask_alpha)
+        self.displayed = self.ax.imshow(
+            self.img,
+            vmin=self.vmin,
+            vmax=self.vmax,
+            aspect="equal",
+            cmap="inferno",
+            alpha=self.mask_alpha,
+        )
         array = self.displayed.get_array().data
 
         self.mask = np.zeros(self.img.shape[:2], dtype=bool)
@@ -2207,7 +2782,16 @@ class image_lasso_selector(object):
 
 
 class slit(object):
-    def __init__(self, img, cdelt=np.array([1.0, 1.0]), width=1.0, height=2.0, angle=0.0, fig=None, ax=None):
+    def __init__(
+        self,
+        img,
+        cdelt=np.array([1.0, 1.0]),
+        width=1.0,
+        height=2.0,
+        angle=0.0,
+        fig=None,
+        ax=None,
+    ):
         """
         img must have shape (X, Y)
         """
@@ -2228,7 +2812,14 @@ class slit(object):
             self.mask_alpha = 0.1
             self.embedded = True
 
-        self.displayed = self.ax.imshow(self.img, vmin=self.vmin, vmax=self.vmax, aspect="equal", cmap="inferno", alpha=self.mask_alpha)
+        self.displayed = self.ax.imshow(
+            self.img,
+            vmin=self.vmin,
+            vmax=self.vmax,
+            aspect="equal",
+            cmap="inferno",
+            alpha=self.mask_alpha,
+        )
         plt.ion()
 
         xx, yy = np.indices(self.img.shape)
@@ -2242,7 +2833,15 @@ class slit(object):
         self.angle = angle
 
         self.rect_center = (self.x0, self.y0) - np.dot(rot2D(self.angle), (self.width / 2, self.height / 2))
-        self.rect = Rectangle(self.rect_center, self.width, self.height, angle=self.angle, alpha=0.8, ec="grey", fc="none")
+        self.rect = Rectangle(
+            self.rect_center,
+            self.width,
+            self.height,
+            angle=self.angle,
+            alpha=0.8,
+            ec="grey",
+            fc="none",
+        )
         self.ax.add_patch(self.rect)
 
         self.fig.canvas.mpl_connect("button_press_event", self.on_press)
@@ -2302,7 +2901,14 @@ class slit(object):
                 self.displayed.remove()
             except ValueError:
                 return
-        self.displayed = self.ax.imshow(self.img, vmin=self.vmin, vmax=self.vmax, aspect="equal", cmap="inferno", alpha=self.mask_alpha)
+        self.displayed = self.ax.imshow(
+            self.img,
+            vmin=self.vmin,
+            vmax=self.vmax,
+            aspect="equal",
+            cmap="inferno",
+            alpha=self.mask_alpha,
+        )
         array = self.displayed.get_array().data
 
         self.mask = np.zeros(array.shape, dtype=bool)
@@ -2340,7 +2946,14 @@ class aperture(object):
             self.mask_alpha = 0.1
             self.embedded = True
 
-        self.displayed = self.ax.imshow(self.img, vmin=self.vmin, vmax=self.vmax, aspect="equal", cmap="inferno", alpha=self.mask_alpha)
+        self.displayed = self.ax.imshow(
+            self.img,
+            vmin=self.vmin,
+            vmax=self.vmax,
+            aspect="equal",
+            cmap="inferno",
+            alpha=self.mask_alpha,
+        )
         plt.ion()
 
         xx, yy = np.indices(self.img.shape)
@@ -2401,7 +3014,14 @@ class aperture(object):
                 self.displayed.remove()
             except ValueError:
                 return
-        self.displayed = self.ax.imshow(self.img, vmin=self.vmin, vmax=self.vmax, aspect="equal", cmap="inferno", alpha=self.mask_alpha)
+        self.displayed = self.ax.imshow(
+            self.img,
+            vmin=self.vmin,
+            vmax=self.vmax,
+            aspect="equal",
+            cmap="inferno",
+            alpha=self.mask_alpha,
+        )
         array = self.displayed.get_array().data
 
         yy, xx = np.indices(self.img.shape[:2])
@@ -2422,7 +3042,17 @@ class pol_map(object):
     Class to interactively study polarization maps.
     """
 
-    def __init__(self, Stokes, P_cut=0.99, SNRi_cut=1.0, step_vec=1, scale_vec=3.0, flux_lim=None, selection=None, pa_err=False):
+    def __init__(
+        self,
+        Stokes,
+        P_cut=0.99,
+        SNRi_cut=1.0,
+        step_vec=1,
+        scale_vec=3.0,
+        flux_lim=None,
+        selection=None,
+        pa_err=False,
+    ):
         if isinstance(Stokes, str):
             Stokes = fits.open(Stokes)
         self.Stokes = deepcopy(Stokes)
@@ -2465,8 +3095,22 @@ class pol_map(object):
         ax_snr_conf = self.fig.add_axes([0.115, 0.020, 0.05, 0.02])
         SNRi_max = np.max(self.I[self.IQU_cov[0, 0] > 0.0] / np.sqrt(self.IQU_cov[0, 0][self.IQU_cov[0, 0] > 0.0]))
         SNRp_max = np.max(self.P[self.s_P > 0.0] / self.s_P[self.s_P > 0.0])
-        s_I_cut = Slider(ax_I_cut, r"$SNR^{I}_{cut}$", 1.0, int(SNRi_max * 0.95), valstep=1, valinit=self.SNRi_cut)
-        self.s_P_cut = Slider(self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99)
+        s_I_cut = Slider(
+            ax_I_cut,
+            r"$SNR^{I}_{cut}$",
+            1.0,
+            int(SNRi_max * 0.95),
+            valstep=1,
+            valinit=self.SNRi_cut,
+        )
+        self.s_P_cut = Slider(
+            self.ax_P_cut,
+            r"$Conf^{P}_{cut}$",
+            0.50,
+            1.0,
+            valstep=[0.500, 0.900, 0.990, 0.999],
+            valinit=self.P_cut if P_cut <= 1.0 else 0.99,
+        )
         s_vec_sc = Slider(ax_vec_sc, r"Vec scale", 0.0, 10.0, valstep=1, valinit=self.scale_vec)
         b_snr_reset = Button(ax_snr_reset, "Reset")
         b_snr_reset.label.set_fontsize(8)
@@ -2503,12 +3147,24 @@ class pol_map(object):
             if self.snr_conf:
                 self.snr_conf = 0
                 b_snr_conf.label.set_text("Conf")
-                self.s_P_cut = Slider(self.ax_P_cut, r"$SNR^{P}_{cut}$", 1.0, int(SNRp_max * 0.95), valstep=1, valinit=self.P_cut if P_cut >= 1.0 else 3)
+                self.s_P_cut = Slider(
+                    self.ax_P_cut,
+                    r"$SNR^{P}_{cut}$",
+                    1.0,
+                    int(SNRp_max * 0.95),
+                    valstep=1,
+                    valinit=self.P_cut if P_cut >= 1.0 else 3,
+                )
             else:
                 self.snr_conf = 1
                 b_snr_conf.label.set_text("SNR")
                 self.s_P_cut = Slider(
-                    self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99
+                    self.ax_P_cut,
+                    r"$Conf^{P}_{cut}$",
+                    0.50,
+                    1.0,
+                    valstep=[0.500, 0.900, 0.990, 0.999],
+                    valinit=self.P_cut if P_cut <= 1.0 else 0.99,
                 )
             self.s_P_cut.on_changed(update_snrp)
             update_snrp(self.s_P_cut.val)
@@ -2572,7 +3228,14 @@ class pol_map(object):
         b_aper.label.set_fontsize(8)
         b_aper_reset = Button(ax_aper_reset, "Reset")
         b_aper_reset.label.set_fontsize(8)
-        s_aper_radius = Slider(ax_aper_radius, r"$R_{aper}$", np.ceil(self.wcs.wcs.cdelt.max() / 1.33 * 3.6e5) / 1e2, 3.5, valstep=1e-2, valinit=1.0)
+        s_aper_radius = Slider(
+            ax_aper_radius,
+            r"$R_{aper}$",
+            np.ceil(self.wcs.wcs.cdelt.max() / 1.33 * 3.6e5) / 1e2,
+            3.5,
+            valstep=1e-2,
+            valinit=1.0,
+        )
 
         def select_aperture(event):
             if self.data is None:
@@ -2589,7 +3252,13 @@ class pol_map(object):
             else:
                 self.selected = True
                 self.region = None
-                self.select_instance = aperture(self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, radius=s_aper_radius.val)
+                self.select_instance = aperture(
+                    self.data,
+                    fig=self.fig,
+                    ax=self.ax,
+                    cdelt=self.wcs.wcs.cdelt,
+                    radius=s_aper_radius.val,
+                )
                 self.select_instance.circ.set_visible(True)
 
             self.fig.canvas.draw_idle()
@@ -2600,10 +3269,22 @@ class pol_map(object):
                     self.select_instance.update_radius(val)
                 else:
                     self.selected = True
-                    self.select_instance = aperture(self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, radius=val)
+                    self.select_instance = aperture(
+                        self.data,
+                        fig=self.fig,
+                        ax=self.ax,
+                        cdelt=self.wcs.wcs.cdelt,
+                        radius=val,
+                    )
             else:
                 self.selected = True
-                self.select_instance = aperture(self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, radius=val)
+                self.select_instance = aperture(
+                    self.data,
+                    fig=self.fig,
+                    ax=self.ax,
+                    cdelt=self.wcs.wcs.cdelt,
+                    radius=val,
+                )
             self.fig.canvas.draw_idle()
 
         def reset_aperture(event):
@@ -2627,8 +3308,22 @@ class pol_map(object):
         b_slit.label.set_fontsize(8)
         b_slit_reset = Button(ax_slit_reset, "Reset")
         b_slit_reset.label.set_fontsize(8)
-        s_slit_width = Slider(ax_slit_width, r"$W_{slit}$", np.ceil(self.wcs.wcs.cdelt.max() / 1.33 * 3.6e5) / 1e2, 7.0, valstep=1e-2, valinit=1.0)
-        s_slit_height = Slider(ax_slit_height, r"$H_{slit}$", np.ceil(self.wcs.wcs.cdelt.max() / 1.33 * 3.6e5) / 1e2, 7.0, valstep=1e-2, valinit=1.0)
+        s_slit_width = Slider(
+            ax_slit_width,
+            r"$W_{slit}$",
+            np.ceil(self.wcs.wcs.cdelt.max() / 1.33 * 3.6e5) / 1e2,
+            7.0,
+            valstep=1e-2,
+            valinit=1.0,
+        )
+        s_slit_height = Slider(
+            ax_slit_height,
+            r"$H_{slit}$",
+            np.ceil(self.wcs.wcs.cdelt.max() / 1.33 * 3.6e5) / 1e2,
+            7.0,
+            valstep=1e-2,
+            valinit=1.0,
+        )
         s_slit_angle = Slider(ax_slit_angle, r"$\theta_{slit}$", 0.0, 90.0, valstep=1.0, valinit=0.0)
 
         def select_slit(event):
@@ -2647,7 +3342,13 @@ class pol_map(object):
                 self.selected = True
                 self.region = None
                 self.select_instance = slit(
-                    self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, width=s_slit_width.val, height=s_slit_height.val, angle=s_slit_angle.val
+                    self.data,
+                    fig=self.fig,
+                    ax=self.ax,
+                    cdelt=self.wcs.wcs.cdelt,
+                    width=s_slit_width.val,
+                    height=s_slit_height.val,
+                    angle=s_slit_angle.val,
                 )
                 self.select_instance.rect.set_visible(True)
 
@@ -2660,12 +3361,24 @@ class pol_map(object):
                 else:
                     self.selected = True
                     self.select_instance = slit(
-                        self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, width=val, height=s_slit_height.val, angle=s_slit_angle.val
+                        self.data,
+                        fig=self.fig,
+                        ax=self.ax,
+                        cdelt=self.wcs.wcs.cdelt,
+                        width=val,
+                        height=s_slit_height.val,
+                        angle=s_slit_angle.val,
                     )
             else:
                 self.selected = True
                 self.select_instance = slit(
-                    self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, width=val, height=s_slit_height.val, angle=s_slit_angle.val
+                    self.data,
+                    fig=self.fig,
+                    ax=self.ax,
+                    cdelt=self.wcs.wcs.cdelt,
+                    width=val,
+                    height=s_slit_height.val,
+                    angle=s_slit_angle.val,
                 )
             self.fig.canvas.draw_idle()
 
@@ -2676,12 +3389,24 @@ class pol_map(object):
                 else:
                     self.selected = True
                     self.select_instance = slit(
-                        self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, width=s_slit_width.val, height=val, angle=s_slit_angle.val
+                        self.data,
+                        fig=self.fig,
+                        ax=self.ax,
+                        cdelt=self.wcs.wcs.cdelt,
+                        width=s_slit_width.val,
+                        height=val,
+                        angle=s_slit_angle.val,
                     )
             else:
                 self.selected = True
                 self.select_instance = slit(
-                    self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, width=s_slit_width.val, height=val, angle=s_slit_angle.val
+                    self.data,
+                    fig=self.fig,
+                    ax=self.ax,
+                    cdelt=self.wcs.wcs.cdelt,
+                    width=s_slit_width.val,
+                    height=val,
+                    angle=s_slit_angle.val,
                 )
             self.fig.canvas.draw_idle()
 
@@ -2692,12 +3417,24 @@ class pol_map(object):
                 else:
                     self.selected = True
                     self.select_instance = slit(
-                        self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, width=s_slit_width.val, height=s_slit_height.val, angle=val
+                        self.data,
+                        fig=self.fig,
+                        ax=self.ax,
+                        cdelt=self.wcs.wcs.cdelt,
+                        width=s_slit_width.val,
+                        height=s_slit_height.val,
+                        angle=val,
                     )
             else:
                 self.selected = True
                 self.select_instance = slit(
-                    self.data, fig=self.fig, ax=self.ax, cdelt=self.wcs.wcs.cdelt, width=s_slit_width.val, height=s_slit_height.val, angle=val
+                    self.data,
+                    fig=self.fig,
+                    ax=self.ax,
+                    cdelt=self.wcs.wcs.cdelt,
+                    width=s_slit_width.val,
+                    height=s_slit_height.val,
+                    angle=val,
                 )
             self.fig.canvas.draw_idle()
 
@@ -2782,7 +3519,11 @@ class pol_map(object):
         def submit_save(expression):
             ax_text_save.set(visible=False)
             if expression != "":
-                save_fig, save_ax = plt.subplots(figsize=(12, 10), layout="constrained", subplot_kw=dict(projection=self.wcs))
+                save_fig, save_ax = plt.subplots(
+                    figsize=(12, 10),
+                    layout="constrained",
+                    subplot_kw=dict(projection=self.wcs),
+                )
                 self.ax_cosmetics(ax=save_ax)
                 self.display(fig=save_fig, ax=save_ax)
                 self.pol_vector(fig=save_fig, ax=save_ax)
@@ -2820,7 +3561,10 @@ class pol_map(object):
             center = (shape / 2).astype(int)
             cdelt_arcsec = self.wcs.wcs.cdelt * 3600
             xx, yy = np.indices(shape)
-            x, y = (xx - center[0]) * cdelt_arcsec[0], (yy - center[1]) * cdelt_arcsec[1]
+            x, y = (
+                (xx - center[0]) * cdelt_arcsec[0],
+                (yy - center[1]) * cdelt_arcsec[1],
+            )
 
             P, PA = np.zeros(shape), np.zeros(shape)
             P[self.cut] = self.P[self.cut]
@@ -2829,7 +3573,15 @@ class pol_map(object):
             for i in range(shape[0]):
                 for j in range(shape[1]):
                     dump_list.append(
-                        [x[i, j], y[i, j], self.I[i, j] * self.map_convert, self.Q[i, j] * self.map_convert, self.U[i, j] * self.map_convert, P[i, j], PA[i, j]]
+                        [
+                            x[i, j],
+                            y[i, j],
+                            self.I[i, j] * self.map_convert,
+                            self.Q[i, j] * self.map_convert,
+                            self.U[i, j] * self.map_convert,
+                            P[i, j],
+                            PA[i, j],
+                        ]
                     )
             self.data_dump = np.array(dump_list)
 
@@ -2982,7 +3734,10 @@ class pol_map(object):
     @property
     def cut(self):
         s_I = np.sqrt(self.IQU_cov[0, 0])
-        SNRp_mask, SNRi_mask = np.zeros(self.P.shape).astype(bool), np.zeros(self.I.shape).astype(bool)
+        SNRp_mask, SNRi_mask = (
+            np.zeros(self.P.shape).astype(bool),
+            np.zeros(self.I.shape).astype(bool),
+        )
         SNRi_mask[s_I > 0.0] = self.I[s_I > 0.0] / s_I[s_I > 0.0] > self.SNRi
         if self.SNRp >= 1.0:
             SNRp_mask[self.s_P > 0.0] = self.P[self.s_P > 0.0] / self.s_P[self.s_P > 0.0] > self.SNRp
@@ -3027,7 +3782,17 @@ class pol_map(object):
         else:
             scale_vec = 2.0
         self.pol_sc = AnchoredSizeBar(
-            ax.transData, scale_vec, r"$P$= 100%", 4, pad=0.5, sep=5, borderpad=0.5, frameon=False, size_vertical=0.005, color="white", fontproperties=fontprops
+            ax.transData,
+            scale_vec,
+            r"$P$= 100%",
+            4,
+            pad=0.5,
+            sep=5,
+            borderpad=0.5,
+            frameon=False,
+            size_vertical=0.005,
+            color="white",
+            fontproperties=fontprops,
         )
         ax.add_artist(self.pol_sc)
         if hasattr(self, "north_dir"):
@@ -3061,7 +3826,10 @@ class pol_map(object):
         if self.display_selection.lower() in ["total_flux"]:
             self.data = self.I * self.map_convert
             if flux_lim is None:
-                vmin, vmax = 1.0 / 2.0 * np.median(self.data[self.data > 0.0]), np.max(self.data[self.data > 0.0])
+                vmin, vmax = (
+                    1.0 / 2.0 * np.median(self.data[self.data > 0.0]),
+                    np.max(self.data[self.data > 0.0]),
+                )
             else:
                 vmin, vmax = flux_lim
             norm = LogNorm(vmin, vmax)
@@ -3069,7 +3837,10 @@ class pol_map(object):
         elif self.display_selection.lower() in ["pol_flux"]:
             self.data = self.I * self.map_convert * self.P
             if flux_lim is None:
-                vmin, vmax = 1.0 / 2.0 * np.median(self.I[self.I > 0.0] * self.map_convert), np.max(self.I[self.I > 0.0] * self.map_convert)
+                vmin, vmax = (
+                    1.0 / 2.0 * np.median(self.I[self.I > 0.0] * self.map_convert),
+                    np.max(self.I[self.I > 0.0] * self.map_convert),
+                )
             else:
                 vmin, vmax = flux_lim
             norm = LogNorm(vmin, vmax)
@@ -3135,7 +3906,10 @@ class pol_map(object):
             scale_vec = 2.0
             P_cut[self.cut] = 1.0 / scale_vec
         X, Y = np.meshgrid(np.arange(self.I.shape[1]), np.arange(self.I.shape[0]))
-        XY_U, XY_V = P_cut * np.cos(np.pi / 2.0 + self.PA * np.pi / 180.0), P_cut * np.sin(np.pi / 2.0 + self.PA * np.pi / 180.0)
+        XY_U, XY_V = (
+            P_cut * np.cos(np.pi / 2.0 + self.PA * np.pi / 180.0),
+            P_cut * np.sin(np.pi / 2.0 + self.PA * np.pi / 180.0),
+        )
 
         if fig is None:
             fig = self.fig
@@ -3339,7 +4113,12 @@ class pol_map(object):
             IU_reg_err = np.sqrt(np.sum(s_IU[self.region] ** 2))
             QU_reg_err = np.sqrt(np.sum(s_QU[self.region] ** 2))
 
-            conf = PCconf(QN=Q_reg / I_reg, QN_ERR=Q_reg_err / I_reg, UN=U_reg / I_reg, UN_ERR=U_reg_err / I_reg)
+            conf = PCconf(
+                QN=Q_reg / I_reg,
+                QN_ERR=Q_reg_err / I_reg,
+                UN=U_reg / I_reg,
+                UN_ERR=U_reg_err / I_reg,
+            )
             if 1.0 - conf > 1e-3:
                 str_conf = "\n" + r"Confidence: {0:.2f} %".format(conf * 100.0)
 
@@ -3399,7 +4178,8 @@ class pol_map(object):
                 self.an_int.remove()
             self.str_int = (
                 r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                    self.pivot_wav, sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2)
+                    self.pivot_wav,
+                    sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2),
                 )
                 + "\n"
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
@@ -3429,13 +4209,19 @@ class pol_map(object):
                 horizontalalignment="left",
             )
             if self.region is not None:
-                self.cont = ax.contour(self.region.astype(float), levels=[0.5], colors="white", linewidths=0.8)
+                self.cont = ax.contour(
+                    self.region.astype(float),
+                    levels=[0.5],
+                    colors="white",
+                    linewidths=0.8,
+                )
             fig.canvas.draw_idle()
             return self.an_int
         else:
             str_int = (
                 r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
-                    self.pivot_wav, sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2)
+                    self.pivot_wav,
+                    sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2),
                 )
                 + "\n"
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
@@ -3465,7 +4251,12 @@ class pol_map(object):
                 horizontalalignment="left",
             )
             if self.region is not None:
-                ax.contour(self.region.astype(float), levels=[0.5], colors="white", linewidths=0.8)
+                ax.contour(
+                    self.region.astype(float),
+                    levels=[0.5],
+                    colors="white",
+                    linewidths=0.8,
+                )
             fig.canvas.draw_idle()
 
 
@@ -3473,21 +4264,84 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Interactively plot the pipeline products")
-    parser.add_argument("-f", "--file", metavar="path", required=False, help="The full or relative path to the data product", type=str, default=None)
-    parser.add_argument("-p", "--pcut", metavar="p_cut", required=False, help="The cut in signal-to-noise for the polarization degree", type=float, default=3.0)
-    parser.add_argument("-i", "--snri", metavar="snri_cut", required=False, help="The cut in signal-to-noise for the intensity", type=float, default=3.0)
     parser.add_argument(
-        "-st", "--step-vec", metavar="step_vec", required=False, help="Quantity of vectors to be shown, 1 is all, 2 is every other, etc.", type=int, default=1
+        "-f",
+        "--file",
+        metavar="path",
+        required=False,
+        help="The full or relative path to the data product",
+        type=str,
+        default=None,
     )
     parser.add_argument(
-        "-sc", "--scale-vec", metavar="scale_vec", required=False, help="Size of the 100%% polarization vector in pixel units", type=float, default=3.0
+        "-p",
+        "--pcut",
+        metavar="p_cut",
+        required=False,
+        help="The cut in signal-to-noise for the polarization degree",
+        type=float,
+        default=3.0,
     )
-    parser.add_argument("-pa", "--pang-err", action="store_true", required=False, help="Whether the polarization angle uncertainties should be displayed")
-    parser.add_argument("-l", "--lim", metavar="flux_lim", nargs=2, required=False, help="Limits for the intensity map", type=float, default=None)
     parser.add_argument(
-        "-pdf", "--static-pdf", metavar="static_pdf", required=False, help="Whether the analysis tool or the static pdfs should be outputed", default=None
+        "-i",
+        "--snri",
+        metavar="snri_cut",
+        required=False,
+        help="The cut in signal-to-noise for the intensity",
+        type=float,
+        default=3.0,
     )
-    parser.add_argument("-t", "--type", metavar="type", required=False, help="Type of plot to be be outputed", default=None)
+    parser.add_argument(
+        "-st",
+        "--step-vec",
+        metavar="step_vec",
+        required=False,
+        help="Quantity of vectors to be shown, 1 is all, 2 is every other, etc.",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "-sc",
+        "--scale-vec",
+        metavar="scale_vec",
+        required=False,
+        help="Size of the 100%% polarization vector in pixel units",
+        type=float,
+        default=3.0,
+    )
+    parser.add_argument(
+        "-pa",
+        "--pang-err",
+        action="store_true",
+        required=False,
+        help="Whether the polarization angle uncertainties should be displayed",
+    )
+    parser.add_argument(
+        "-l",
+        "--lim",
+        metavar="flux_lim",
+        nargs=2,
+        required=False,
+        help="Limits for the intensity map",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "-pdf",
+        "--static-pdf",
+        metavar="static_pdf",
+        required=False,
+        help="Whether the analysis tool or the static pdfs should be outputed",
+        default=None,
+    )
+    parser.add_argument(
+        "-t",
+        "--type",
+        metavar="type",
+        required=False,
+        help="Type of plot to be be outputed",
+        default=None,
+    )
     args = parser.parse_args()
 
     if args.file is not None:
