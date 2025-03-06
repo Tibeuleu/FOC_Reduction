@@ -109,7 +109,7 @@ def CenterConf(mask, PA, sPA):
 
     conf[np.isfinite(PA)] = gammaincc(0.5, 0.5 * chi2[np.isfinite(PA)])
     c0 = np.unravel_index(np.argmax(conf), conf.shape)[::-1]
-    result = minimize(chisq, c0, bounds=[(0, PA.shape[1]), (0.0, PA.shape[0])])
+    result = minimize(chisq, c0, bounds=[(0, PA.shape[1]), (0.0, PA.shape[0])], method="TNC")
     if result.success:
         print("Center of emission found")
     else:
