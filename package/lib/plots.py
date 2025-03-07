@@ -428,7 +428,7 @@ def polarization_map(
         P_cut = 0.99
     else:
         # MaskP on the confidence value
-        SNRp_cut = 5.0
+        SNRp_cut = 3.0
         maskP = confP > P_cut
 
     mask = np.logical_and(maskI, maskP)
@@ -504,72 +504,32 @@ def polarization_map(
     if display.lower() in ["i", "intensity"]:
         # If no display selected, show intensity map
         display = "i"
-        if flux_lim is None:
-            if mask.sum() > 0.0:
-                vmin, vmax = (
-                    1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux),
-                    np.max(stkI[stkI > 0.0] * convert_flux),
-                )
-            else:
-                vmin, vmax = (
-                    1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux),
-                    np.max(stkI[stkI > 0.0] * convert_flux),
-                )
-        else:
+        if flux_lim is not None:
             vmin, vmax = flux_lim
-        im = ax.imshow(
-            stkI * convert_flux,
-            norm=LogNorm(vmin, vmax),
-            aspect="equal",
-            cmap=kwargs["cmap"],
-            alpha=1.0,
-        )
-        fig.colorbar(
-            im,
-            ax=ax,
-            aspect=30,
-            shrink=0.60,
-            pad=0.025,
-            label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]",
-        )
+        elif mask.sum() > 0.0:
+            vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+        else:
+            vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+        im = ax.imshow(stkI * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         levelsI = np.array([0.8, 2.0, 5.0, 10.0, 20.0, 50.0]) / 100.0 * vmax
         print("Flux density contour levels : ", levelsI)
         ax.contour(stkI * convert_flux, levels=levelsI, colors="grey", linewidths=0.5)
     elif display.lower() in ["pf", "pol_flux"]:
         # Display polarization flux
         display = "pf"
-        if flux_lim is None:
-            if mask.sum() > 0.0:
-                vmin, vmax = (
-                    1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux),
-                    np.max(stkI[stkI > 0.0] * convert_flux),
-                )
-                pfmax = (stkI[mask] * pol[mask] * convert_flux).max()
-            else:
-                vmin, vmax = (
-                    1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux),
-                    np.max(stkI[stkI > 0.0] * convert_flux),
-                )
-                pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
-        else:
+        if flux_lim is not None:
             vmin, vmax = flux_lim
             pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
-        im = ax.imshow(
-            stkI * convert_flux * pol,
-            norm=LogNorm(vmin, vmax),
-            aspect="equal",
-            cmap=kwargs["cmap"],
-            alpha=1.0,
-        )
-        fig.colorbar(
-            im,
-            ax=ax,
-            aspect=30,
-            shrink=0.60,
-            pad=0.025,
-            label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]",
-        )
-        # levelsPf = np.linspace(0.0175, 0.50, 5) * pfmax
+        elif mask.sum() > 0.0:
+            vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][mask]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+            pfmax = (stkI[mask] * pol[mask] * convert_flux).max()
+        else:
+            vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+            pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
+        im = ax.imshow(stkI * convert_flux * pol, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+        # levelsPf = np.linspace(0.0.60, 0.50, 5) * pfmax
         levelsPf = np.array([1.73, 13.0, 33.0, 66.0]) / 100.0 * pfmax
         print("Polarized flux density contour levels : ", levelsPf)
         ax.contour(stkI * convert_flux * pol, levels=levelsPf, colors="grey", linewidths=0.5)
@@ -577,52 +537,24 @@ def polarization_map(
         # Display polarization degree map
         display = "p"
         vmin, vmax = 0.0, 100.0
-        im = ax.imshow(
-            pol * 100.0,
-            vmin=vmin,
-            vmax=vmax,
-            aspect="equal",
-            cmap=kwargs["cmap"],
-            alpha=1.0,
-        )
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$P$ [%]")
+        im = ax.imshow(pol * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$P$ [%]")
     elif display.lower() in ["pa", "pang", "pol_ang"]:
         # Display polarization degree map
         display = "pa"
         vmin, vmax = 0.0, 180.0
-        im = ax.imshow(
-            princ_angle(pang),
-            vmin=vmin,
-            vmax=vmax,
-            aspect="equal",
-            cmap=kwargs["cmap"],
-            alpha=1.0,
-        )
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$\theta_P$ [°]")
+        im = ax.imshow(princ_angle(pang), vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\theta_P$ [°]")
     elif display.lower() in ["s_p", "pol_err", "pol_deg_err"]:
         # Display polarization degree error map
         display = "s_p"
         if (SNRp > P_cut).any():
             vmin, vmax = 0.0, np.max([pol_err[SNRp > P_cut].max(), 1.0]) * 100.0
-            im = ax.imshow(
-                pol_err * 100.0,
-                vmin=vmin,
-                vmax=vmax,
-                aspect="equal",
-                cmap="inferno_r",
-                alpha=1.0,
-            )
+            im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0)
         else:
             vmin, vmax = 0.0, 100.0
-            im = ax.imshow(
-                pol_err * 100.0,
-                vmin=vmin,
-                vmax=vmax,
-                aspect="equal",
-                cmap="inferno_r",
-                alpha=1.0,
-            )
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$\sigma_P$ [%]")
+            im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0)
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\sigma_P$ [%]")
     elif display.lower() in ["s_i", "i_err"]:
         # Display intensity error map
         display = "s_i"
@@ -631,73 +563,34 @@ def polarization_map(
                 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stk_cov[0, 0] > 0.0]) * convert_flux),
                 np.max(np.sqrt(stk_cov[0, 0][stk_cov[0, 0] > 0.0]) * convert_flux),
             )
-            im = ax.imshow(
-                np.sqrt(stk_cov[0, 0]) * convert_flux,
-                norm=LogNorm(vmin, vmax),
-                aspect="equal",
-                cmap="inferno_r",
-                alpha=1.0,
-            )
+            im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap="inferno_r", alpha=1.0)
         else:
-            im = ax.imshow(
-                np.sqrt(stk_cov[0, 0]) * convert_flux,
-                aspect="equal",
-                cmap=kwargs["cmap"],
-                alpha=1.0,
-            )
-        fig.colorbar(
-            im,
-            ax=ax,
-            aspect=30,
-            shrink=0.60,
-            pad=0.025,
-            label=r"$\sigma_I$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]",
-        )
+            im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\sigma_I$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
     elif display.lower() in ["snri"]:
         # Display I_stokes signal-to-noise map
         display = "snri"
         vmin, vmax = 0.0, np.max(SNRi[np.isfinite(SNRi)])
         if vmax * 0.99 > SNRi_cut:
-            im = ax.imshow(
-                SNRi,
-                vmin=vmin,
-                vmax=vmax,
-                aspect="equal",
-                cmap=kwargs["cmap"],
-                alpha=1.0,
-            )
+            im = ax.imshow(SNRi, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
             levelsSNRi = np.linspace(SNRi_cut, vmax * 0.99, 5).astype(int)
             print("SNRi contour levels : ", levelsSNRi)
             ax.contour(SNRi, levels=levelsSNRi, colors="grey", linewidths=0.5)
         else:
             im = ax.imshow(SNRi, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(
-            im,
-            ax=ax,
-            aspect=30,
-            shrink=0.60,
-            pad=0.025,
-            label=r"$I_{Stokes}/\sigma_{I}$",
-        )
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
     elif display.lower() in ["snr", "snrp"]:
         # Display polarization degree signal-to-noise map
         display = "snrp"
         vmin, vmax = 0.0, np.max(SNRp[np.isfinite(SNRp)])
         if vmax * 0.99 > SNRp_cut:
-            im = ax.imshow(
-                SNRp,
-                vmin=vmin,
-                vmax=vmax,
-                aspect="equal",
-                cmap=kwargs["cmap"],
-                alpha=1.0,
-            )
+            im = ax.imshow(SNRp, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
             levelsSNRp = np.linspace(P_cut, vmax * 0.99, 5).astype(int)
             print("SNRp contour levels : ", levelsSNRp)
             ax.contour(SNRp, levels=levelsSNRp, colors="grey", linewidths=0.5)
         else:
             im = ax.imshow(SNRp, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$P/\sigma_{P}$")
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$P/\sigma_{P}$")
     elif display.lower() in ["conf", "confp"]:
         # Display polarization degree signal-to-noise map
         display = "confp"
@@ -706,34 +599,17 @@ def polarization_map(
         levelsconfp = np.array([0.500, 0.900, 0.990, 0.999])
         print("confp contour levels : ", levelsconfp)
         ax.contour(confP, levels=levelsconfp, colors="grey", linewidths=0.5)
-        fig.colorbar(im, ax=ax, aspect=30, shrink=0.60, pad=0.025, label=r"$Conf_{P}$")
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$Conf_{P}$")
     else:
         # Defaults to intensity map
-        if mask.sum() > 0.0:
-            vmin, vmax = (
-                1.0 * np.mean(np.sqrt(stk_cov[0, 0][mask]) * convert_flux),
-                np.max(stkI[stkI > 0.0] * convert_flux),
-            )
+        if flux_lim is not None:
+            vmin, vmax = flux_lim
+        elif mask.sum() > 0.0:
+            vmin, vmax = 1.0 * np.mean(np.sqrt(stk_cov[0, 0][mask]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
         else:
-            vmin, vmax = (
-                1.0 * np.mean(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux),
-                np.max(stkI[stkI > 0.0] * convert_flux),
-            )
-        im = ax.imshow(
-            stkI * convert_flux,
-            norm=LogNorm(vmin, vmax),
-            aspect="equal",
-            cmap=kwargs["cmap"],
-            alpha=1.0,
-        )
-        fig.colorbar(
-            im,
-            ax=ax,
-            aspect=30,
-            shrink=0.60,
-            pad=0.025,
-            label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA$]",
-        )
+            vmin, vmax = 1.0 * np.mean(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
+        im = ax.imshow(stkI * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA$]")
 
     # Get integrated flux values from sum
     I_diluted = stkI[data_mask].sum()
@@ -3148,12 +3024,7 @@ class pol_map(object):
                 self.snr_conf = 0
                 b_snr_conf.label.set_text("Conf")
                 self.s_P_cut = Slider(
-                    self.ax_P_cut,
-                    r"$SNR^{P}_{cut}$",
-                    1.0,
-                    int(SNRp_max * 0.95),
-                    valstep=1,
-                    valinit=self.P_cut if P_cut >= 1.0 else 3,
+                    self.ax_P_cut, r"$SNR^{P}_{cut}$", 1.0, max(int(SNRp_max * 0.95), 3), valstep=1, valinit=self.P_cut if P_cut >= 1.0 else 3
                 )
             else:
                 self.snr_conf = 1

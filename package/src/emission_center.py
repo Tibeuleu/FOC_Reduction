@@ -44,7 +44,7 @@ def main(infile, P_cut=0.99, target=None, display="pf", output_dir=None):
         target = Stokes[0].header["TARGNAME"]
 
     fig = figure(figsize=(8, 8.5), layout="constrained")
-    fig, ax = polarization_map(Stokes, P_cut=P_cut, step_vec=1, scale_vec=3, display=display, fig=fig, width=0.33, linewidth=0.5)
+    fig, ax = polarization_map(Stokes, P_cut=P_cut, step_vec=1, scale_vec=5, display=display, fig=fig, width=0.33, linewidth=0.5)
 
     ax.plot(*Stokescenter, marker="+", color="k", lw=3)
     ax.plot(*Stokescenter, marker="+", color="red", lw=1.5, label="Best confidence for center: {0}".format(Stokespos.to_string("hmsdms")))
@@ -62,11 +62,11 @@ def main(infile, P_cut=0.99, target=None, display="pf", output_dir=None):
     # handles.append(Rectangle((0, 0), 1, 1, fill=False, ls="--", ec=snr3cont.get_edgecolor()[0]))
     # labels.append(r"$SNR_P \geq$ 4  contour")
     # handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=snr4cont.get_edgecolor()[0]))
-    ax.legend(handles=handles, labels=labels, bbox_to_anchor=(0.0, -0.02, 1.0, 0.01), loc="upper left", mode="expand", borderaxespad=0.0)
+    ax.legend(handles=handles, labels=labels, bbox_to_anchor=(-0.05, -0.02, 1.10, 0.01), loc="upper left", mode="expand", borderaxespad=0.0)
 
     if output_dir is not None:
         filename = pathjoin(output_dir, "%s_center.pdf" % target)
-        fig.savefig(filename, dpi=300, facecolor="None")
+        fig.savefig(filename, bbox_inches='tight', dpi=300, facecolor="None")
         output.append(filename)
     show()
     return output
