@@ -1599,7 +1599,7 @@ class overplot_pol(align_maps):
 
     def overplot(
         self,
-        levels=None,
+        levels="Default",
         P_cut=0.99,
         SNRi_cut=1.0,
         step_vec=1,
@@ -1668,9 +1668,7 @@ class overplot_pol(align_maps):
             ["linewidth", [["linewidth", 0.3 * self.px_scale]]],
         ]:
             try:
-                test = kwargs[key]
-                if isinstance(test, LogNorm):
-                    kwargs[key] = LogNorm(vmin, vmax)
+                _ = kwargs[key]
             except KeyError:
                 for key_i, val_i in value:
                     kwargs[key_i] = val_i
@@ -1703,7 +1701,7 @@ class overplot_pol(align_maps):
         else:
             self.ax_overplot.set_facecolor("white")
             font_color = "black"
-        if hasattr(kwargs, "norm"):
+        if "norm" in kwargs.keys():
             self.im = self.ax_overplot.imshow(
                 other_data * self.other_convert,
                 alpha=1.0,
@@ -1766,50 +1764,51 @@ class overplot_pol(align_maps):
 
         # Display Stokes as contours
         disptypestr = ""
-        if disptype.lower() == "p":
-            disptypestr = "polarization degree"
-            if levels is None:
-                levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(pol[stkI > 0.0])
-            cont_stk = self.ax_overplot.contour(
-                pol * 100.0,
-                levels=levels * 100.0,
-                colors="grey",
-                alpha=0.75,
-                transform=self.ax_overplot.get_transform(self.wcs_UV),
-            )
-        if disptype.lower() == "pf":
-            disptypestr = "polarized flux"
-            if levels is None:
-                levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0] * pol[stkI > 0.0]) * self.map_convert
-            cont_stk = self.ax_overplot.contour(
-                stkI * pol * self.map_convert,
-                levels=levels,
-                colors="grey",
-                alpha=0.75,
-                transform=self.ax_overplot.get_transform(self.wcs_UV),
-            )
-        if disptype.lower() == "snri":
-            disptypestr = "Stokes I signal-to-noise"
-            if levels is None:
-                levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(SNRi[stk_cov[0, 0] > 0.0])
-            cont_stk = self.ax_overplot.contour(
-                SNRi,
-                levels=levels,
-                colors="grey",
-                alpha=0.75,
-                transform=self.ax_overplot.get_transform(self.wcs_UV),
-            )
-        else:  # default to intensity contours
-            disptypestr = "Stokes I"
-            if levels is None:
-                levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0]) * self.map_convert
-            cont_stk = self.ax_overplot.contour(
-                stkI * self.map_convert,
-                levels=levels,
-                colors="grey",
-                alpha=0.75,
-                transform=self.ax_overplot.get_transform(self.wcs_UV),
-            )
+        if levels is not None:
+            if disptype.lower() == "p":
+                disptypestr = "polarization degree"
+                if levels == "Default":
+                    levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(pol[stkI > 0.0])
+                cont_stk = self.ax_overplot.contour(
+                    pol * 100.0,
+                    levels=levels * 100.0,
+                    colors="grey",
+                    alpha=0.75,
+                    transform=self.ax_overplot.get_transform(self.wcs_UV),
+                )
+            elif disptype.lower() == "pf":
+                disptypestr = "polarized flux"
+                if levels == "Default":
+                    levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0] * pol[stkI > 0.0]) * self.map_convert
+                cont_stk = self.ax_overplot.contour(
+                    stkI * pol * self.map_convert,
+                    levels=levels,
+                    colors="grey",
+                    alpha=0.75,
+                    transform=self.ax_overplot.get_transform(self.wcs_UV),
+                )
+            elif disptype.lower() == "snri":
+                disptypestr = "Stokes I signal-to-noise"
+                if levels == "Default":
+                    levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(SNRi[stk_cov[0, 0] > 0.0])
+                cont_stk = self.ax_overplot.contour(
+                    SNRi,
+                    levels=levels,
+                    colors="grey",
+                    alpha=0.75,
+                    transform=self.ax_overplot.get_transform(self.wcs_UV),
+                )
+            else:  # default to intensity contours
+                disptypestr = "Stokes I"
+                if levels == "Default":
+                    levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0]) * self.map_convert
+                cont_stk = self.ax_overplot.contour(
+                    stkI * self.map_convert,
+                    levels=levels,
+                    colors="grey",
+                    alpha=0.75,
+                    transform=self.ax_overplot.get_transform(self.wcs_UV),
+                )
         # self.ax_overplot.clabel(cont_stk, inline=False, colors="k", fontsize=7)
 
         # Display pixel scale and North direction
@@ -1881,8 +1880,10 @@ class overplot_pol(align_maps):
             handles[np.argmax([li == "{0:s} polarization map".format(self.map_observer) for li in labels])] = FancyArrowPatch(
                 (0, 0), (0, 1), arrowstyle="-", fc="w", ec="k", lw=2
             )
-        labels.append("{0:s} {1:s} contour".format(self.map_observer, disptypestr))
-        handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=cont_stk.get_edgecolor()[0]))
+        if disptypestr != "":
+            labels.append("{0:s} {1:s} contour".format(self.map_observer, disptypestr))
+            handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=cont_stk.get_edgecolor()[0]))
+            disptypestr += " contours"
         self.legend = self.ax_overplot.legend(
             handles=handles,
             labels=labels,
@@ -1893,7 +1894,7 @@ class overplot_pol(align_maps):
         )
 
         self.fig_overplot.suptitle(
-            "{0:s} observation from {1:s} overplotted with {2:s} contours from {3:s}".format(obj, self.other_observer, vecstr + disptypestr, self.map_observer),
+            "{0:s} observation from {1:s} overplotted with {2:s} from {3:s}".format(obj, self.other_observer, vecstr + disptypestr, self.map_observer),
             wrap=True,
         )
 
