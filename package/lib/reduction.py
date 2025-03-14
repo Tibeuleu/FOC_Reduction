@@ -446,9 +446,9 @@ def get_error(
     return_background=False,
 ):
     """
-    Look for sub-image of shape sub_shape that have the smallest integrated
-    flux (no source assumption) and define the background on the image by the
-    standard deviation on this sub-image.
+    Estimate background intensity level from either fitting the intensity histogram
+    or by looking for the sub-image of smallest integrated intensity (no source assumption)
+    and define the background on the image by the standard deviation on this sub-image.
     ----------
     Inputs:
     data_array : numpy.ndarray
@@ -468,7 +468,7 @@ def get_error(
         If 'auto', look for optimal binning and fit intensity histogram with au gaussian.
         If str or None, statistic rule to be used for the number of bins in counts/s.
         If int, number of bins for the counts/s histogram.
-        If tuple, shape of the sub-image to look for. Must be odd.
+        If tuple, shape of the sub-image of lowest intensity to look for.
         Defaults to None.
     subtract_error : float or bool, optional
         If float, factor to which the estimated background should be multiplied
@@ -1801,8 +1801,6 @@ def rotate_data(data_array, error_array, data_mask, headers):
         Updated list of headers corresponding to the reduced images accounting
         for the new orientation angle.
     """
-    # Rotate I_stokes, Q_stokes, U_stokes using rotation matrix
-
     old_center = np.array(data_array[0].shape) / 2
     shape = np.fix(np.array(data_array[0].shape) * np.sqrt(2.5)).astype(int)
     new_center = np.array(shape) / 2
