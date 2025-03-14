@@ -40,13 +40,13 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     display_crop = False
 
     # Background estimation
-    error_sub_type = "scott"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
-    subtract_error = 2.0
+    error_sub_type = "scott"  # sqrt, sturges, rice, freedman-diaconis, scott (default) or shape (example (51, 51))
+    subtract_error = 3.0
     display_bkg = True
 
     # Data binning
-    pxsize = 0.05
-    pxscale = "arcsec"  # pixel, arcsec or full
+    pxsize = 40
+    pxscale = "px"  # pixel, arcsec or full
     rebin_operation = "sum"  # sum or average
 
     # Alignement
@@ -59,15 +59,15 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Smoothing
     smoothing_function = "combine"  # gaussian_after, weighted_gaussian_after, gaussian, weighted_gaussian or combine
-    smoothing_FWHM = 0.075  # If None, no smoothing is done
-    smoothing_scale = "arcsec"  # pixel or arcsec
+    smoothing_FWHM = 1.5  # If None, no smoothing is done
+    smoothing_scale = "px"  # pixel or arcsec
 
     # Rotation
     rotate_North = True
 
     #  Polarization map output
     P_cut = 5  # if >=1.0 cut on the signal-to-noise else cut on the confidence level in Q, U
-    SNRi_cut = 5.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
+    SNRi_cut = 1.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
     flux_lim = None  # lowest and highest flux displayed on plot, defaults to bkg and maximum in cut if None
     scale_vec = 3
     step_vec = 1  # plot all vectors in the array. if step_vec = 2, then every other vector will be plotted if step_vec = 0 then all vectors are displayed at full length
@@ -182,6 +182,14 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
             norm=LogNorm(vmin=data_array[data_array > 0.0].min() * headers[0]["photflam"], vmax=data_array[data_array > 0.0].max() * headers[0]["photflam"]),
         )
 
+    flux_data, flux_error, flux_mask, flux_head = (
+        deepcopy(data_array.sum(axis=0)),
+        deepcopy(np.sqrt(np.sum(error_array**2, axis=0))),
+        deepcopy(data_mask),
+        deepcopy(headers[0]),
+    )
+    flux_head["EXPTIME"] = np.sum([head["EXPTIME"] for head in headers])
+
     #  Rebin data to desired pixel size.
     if (pxsize is not None) and not (pxsize == 1 and pxscale.lower() in ["px", "pixel", "pixels"]):
         data_array, error_array, headers, Dxy, data_mask = proj_red.rebin_array(
@@ -233,6 +241,8 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         I_bkg, Q_bkg, U_bkg, S_cov_bkg, data_mask_bkg, header_bkg = proj_red.rotate_Stokes(
             I_bkg, Q_bkg, U_bkg, S_cov_bkg, np.array(True).reshape(1, 1), header_bkg, SNRi_cut=None
         )
+        flux_data, flux_error, flux_mask, flux_head = proj_red.rotate_data(np.array([flux_data]), np.array([flux_error]), flux_mask, [flux_head])
+        flux_data, flux_error, flux_head = flux_data[0], flux_error[0], flux_head[0]
 
     # Compute polarimetric parameters (polarization degree and angle).
     P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P = proj_red.compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes)
@@ -258,8 +268,10 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         figname,
         data_folder=data_folder,
         return_hdul=True,
+        flux_data=flux_data,
+        flux_head=flux_head,
     )
-    outfiles.append("/".join([data_folder, Stokes_hdul[0].header["FILENAME"] + ".fits"]))
+    outfiles.append("/".join([data_folder, Stokes_hdul["I_STOKES"].header["FILENAME"] + ".fits"]))
 
     # Step 5:
     # crop to desired region of interest (roi)
@@ -269,15 +281,15 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         stokescrop.crop()
         stokescrop.write_to("/".join([data_folder, figname + ".fits"]))
         Stokes_hdul, header_stokes = stokescrop.hdul_crop, stokescrop.hdul_crop[0].header
-        outfiles.append("/".join([data_folder, Stokes_hdul[0].header["FILENAME"] + ".fits"]))
+        outfiles.append("/".join([data_folder, Stokes_hdul["I_STOKES"].header["FILENAME"] + ".fits"]))
 
     data_mask = Stokes_hdul["data_mask"].data.astype(bool)
     print(
         "F_int({0:.0f} Angs) = ({1} ± {2})e{3} ergs.cm^-2.s^-1.Angs^-1".format(
             header_stokes["PHOTPLAM"],
             *sci_not(
-                Stokes_hdul[0].data[data_mask].sum() * header_stokes["PHOTFLAM"],
-                np.sqrt(Stokes_hdul[3].data[0, 0][data_mask].sum()) * header_stokes["PHOTFLAM"],
+                Stokes_hdul["I_STOKES"].data[data_mask].sum() * header_stokes["PHOTFLAM"],
+                np.sqrt(Stokes_hdul["IQU_COV_MATRIX"].data[0, 0][data_mask].sum()) * header_stokes["PHOTFLAM"],
                 2,
                 out=int,
             ),
