@@ -294,7 +294,7 @@ def bkg_hist(data, error, mask, headers, sub_type=None, subtract_error=True, dis
     sub_type : str or int, optional
         If str, statistic rule to be used for the number of bins in counts/s.
         If int, number of bins for the counts/s histogram.
-        Defaults to "Freedman-Diaconis".
+        Defaults to "Scott".
     subtract_error : float or bool, optional
         If float, factor to which the estimated background should be multiplied
         If False the background is not subtracted.
@@ -336,25 +336,25 @@ def bkg_hist(data, error, mask, headers, sub_type=None, subtract_error=True, dis
         if sub_type is not None:
             if isinstance(sub_type, int):
                 n_bins = sub_type
-            elif sub_type.lower() in ["sqrt"]:
+            elif sub_type.lower() in ["square-root", "squareroot", "sqrt"]:
                 n_bins = np.fix(np.sqrt(image[n_mask].size)).astype(int)  # Square-root
             elif sub_type.lower() in ["sturges"]:
                 n_bins = np.ceil(np.log2(image[n_mask].size)).astype(int) + 1  # Sturges
             elif sub_type.lower() in ["rice"]:
                 n_bins = 2 * np.fix(np.power(image[n_mask].size, 1 / 3)).astype(int)  # Rice
-            elif sub_type.lower() in ["scott"]:
-                n_bins = np.fix((image[n_mask].max() - image[n_mask].min()) / (3.5 * image[n_mask].std() / np.power(image[n_mask].size, 1 / 3))).astype(
-                    int
-                )  # Scott
-            else:
+            elif sub_type.lower() in ["freedman-diaconis", "freedmandiaconis", "freedman", "diaconis"]:
                 n_bins = np.fix(
                     (image[n_mask].max() - image[n_mask].min())
                     / (2 * np.subtract(*np.percentile(image[n_mask], [75, 25])) / np.power(image[n_mask].size, 1 / 3))
                 ).astype(int)  # Freedman-Diaconis
-        else:
-            n_bins = np.fix(
-                (image[n_mask].max() - image[n_mask].min()) / (2 * np.subtract(*np.percentile(image[n_mask], [75, 25])) / np.power(image[n_mask].size, 1 / 3))
-            ).astype(int)  # Freedman-Diaconis
+            else:  # Fallback
+                n_bins = np.fix((image[n_mask].max() - image[n_mask].min()) / (3.5 * image[n_mask].std() / np.power(image[n_mask].size, 1 / 3))).astype(
+                    int
+                )  # Scott
+        else:  # Default statistic
+            n_bins = np.fix((image[n_mask].max() - image[n_mask].min()) / (3.5 * image[n_mask].std() / np.power(image[n_mask].size, 1 / 3))).astype(
+                int
+            )  # Scott
 
         hist, bin_edges = np.histogram(np.log(image[n_mask]), bins=n_bins)
         histograms.append(hist)
