@@ -91,6 +91,7 @@ def CenterConf(mask, PA, sPA):
     chi2 = np.full(PA.shape, np.nan, dtype=np.float64)
     conf = np.full(PA.shape, -1.0, dtype=np.float64)
     yy, xx = np.indices(PA.shape)
+    Nobs = np.sum(mask)
 
     def ideal(c):
         itheta = np.full(PA.shape, np.nan)
@@ -99,19 +100,18 @@ def CenterConf(mask, PA, sPA):
         return princ_angle(itheta)
 
     def chisq(c):
-        return np.sum((princ_angle(PA[mask]) - ideal((c[0], c[1]))[mask]) ** 2 / sPA[mask] ** 2) / np.sum(mask)
+        return np.sum((princ_angle(PA[mask]) - ideal((c[0], c[1]))[mask]) ** 2 / sPA[mask] ** 2) / (Nobs - 2)
 
     for x, y in zip(xx[np.isfinite(PA)], yy[np.isfinite(PA)]):
         chi2[y, x] = chisq((x, y))
 
     from scipy.optimize import minimize
-    from scipy.special import gammaincc
 
-    conf[np.isfinite(PA)] = gammaincc(0.5, 0.5 * chi2[np.isfinite(PA)])
+    conf[np.isfinite(PA)] = 0.5 * np.exp(-0.5 * chi2[np.isfinite(PA)])
     c0 = np.unravel_index(np.argmax(conf), conf.shape)[::-1]
-    result = minimize(chisq, c0, bounds=[(0, PA.shape[1]), (0.0, PA.shape[0])], method="TNC")
+    result = minimize(chisq, c0, bounds=[(0, PA.shape[1]), (0.0, PA.shape[0])], method="trust-constr")
     if result.success:
-        print("Center of emission found")
+        print("Center of emission found: reduced chi_squared {0:.2f}/{1:d}={2:.2f}".format(chisq(result.x) * (Nobs - 2), Nobs - 2, chisq(result.x)))
     else:
         print("Center of emission not found", result)
     return conf, result.x
