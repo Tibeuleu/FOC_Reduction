@@ -101,7 +101,24 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
 
 
 def save_Stokes(
-    I_stokes, Q_stokes, U_stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P, header_stokes, data_mask, filename, data_folder="", return_hdul=False
+    I_stokes,
+    Q_stokes,
+    U_stokes,
+    Stokes_cov,
+    P,
+    debiased_P,
+    s_P,
+    s_P_P,
+    PA,
+    s_PA,
+    s_PA_P,
+    header_stokes,
+    data_mask,
+    filename,
+    data_folder="",
+    return_hdul=False,
+    flux_data=None,
+    flux_head=None,
 ):
     """
     Save computed polarimetry parameters to a single fits file,
@@ -194,11 +211,23 @@ def save_Stokes(
     hdul = fits.HDUList([])
 
     # Add I_stokes as PrimaryHDU
-    header["datatype"] = ("I_stokes", "type of data stored in the HDU")
-    I_stokes[(1 - data_mask).astype(bool)] = 0.0
-    primary_hdu = fits.PrimaryHDU(data=I_stokes, header=header)
-    primary_hdu.name = "I_stokes"
-    hdul.append(primary_hdu)
+    if flux_data is None:
+        header["datatype"] = ("I_stokes", "type of data stored in the HDU")
+        I_stokes[(1 - data_mask).astype(bool)] = 0.0
+        primary_hdu = fits.PrimaryHDU(data=I_stokes, header=header)
+        primary_hdu.name = "I_stokes"
+        hdul.append(primary_hdu)
+    else:
+        flux_head["TELESCOP"], flux_head["INSTRUME"] = header["TELESCOP"], header["INSTRUME"]
+        header["datatype"] = ("Flux map", "type of data stored in the HDU")
+        primary_hdu = fits.PrimaryHDU(data=flux_data, header=flux_head)
+        primary_hdu.name = "Flux map"
+        hdul.append(primary_hdu)
+        header["datatype"] = ("I_stokes", "type of data stored in the HDU")
+        I_stokes[(1 - data_mask).astype(bool)] = 0.0
+        image_hdu = fits.ImageHDU(data=I_stokes, header=header)
+        image_hdu.name = "I_stokes"
+        hdul.append(image_hdu)
 
     # Add Q, U, Stokes_cov, P, s_P, PA, s_PA to the HDUList
     for data, name in [
