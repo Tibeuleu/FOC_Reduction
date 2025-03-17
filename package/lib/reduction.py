@@ -676,6 +676,7 @@ def rebin_array(data_array, error_array, headers, pxsize=2, scale="px", operatio
         nw.wcs.crpix /= Dxy
         nw.array_shape = new_shape
         new_header["NAXIS1"], new_header["NAXIS2"] = nw.array_shape
+        new_header["PXAREA"] *= Dxy[0] * Dxy[1]
         for key, val in nw.to_header().items():
             new_header.set(key, val)
         new_header["SAMPLING"] = (str(pxsize) + scale, "Resampling performed during reduction")
@@ -1725,10 +1726,6 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
     new_wcs.wcs.set()
     for key, val in new_wcs.to_header().items():
         new_header_stokes.set(key, val)
-    if new_wcs.wcs.pc[0, 0] == 1.0:
-        new_header_stokes.set("PC1_1", 1.0)
-    if new_wcs.wcs.pc[1, 1] == 1.0:
-        new_header_stokes.set("PC2_2", 1.0)
     new_header_stokes["ORIENTAT"] += ang
 
     # Nan handling :
