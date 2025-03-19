@@ -2951,7 +2951,7 @@ class pol_map(object):
 
     @property
     def wcs(self):
-        return WCS(self.Stokes["I_STOKES"].header).celestial.deepcopy()
+        return WCS(self.Stokes[0].header).celestial.deepcopy()
 
     @property
     def Flux(self):
