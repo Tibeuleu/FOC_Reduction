@@ -47,9 +47,9 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
             wcs_array.append(WCS(header=f[0].header, fobj=f).celestial)
             f.flush()
         # Save pixel area for flux density computation
-        if headers[i]["PXFORMT"] == "NORMAL":
+        if "PXFORMT" in headers[i].keys() and headers[i]["PXFORMT"] == "NORMAL":
             headers[i]["PXAREA"] = 1.96e-4  # 14x14 milliarcsec squared pixel area in arcsec^2
-        elif headers[i]["PXFORMT"] == "ZOOM":
+        elif "PXFORMT" in headers[i].keys() and headers[i]["PXFORMT"] == "ZOOM":
             headers[i]["PXAREA"] = 4.06e-4  # 29x14 milliarcsec squared pixel area in arcsec^2
         else:
             headers[i]["PXAREA"] = 1.0  # unknown default to 1 arcsec^2
@@ -90,10 +90,10 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
     # force WCS for POL60 to have same pixel size as POL0 and POL120
     is_pol60 = np.array([head["filtnam1"].lower() == "pol60" for head in headers], dtype=bool)
     cdelt = np.round(np.array([WCS(head).wcs.cdelt[:2] for head in headers]), 10)
-    if np.unique(cdelt[np.logical_not(is_pol60)], axis=0).size != 2:
+    if np.any(is_pol60) and np.unique(cdelt[np.logical_not(is_pol60)], axis=0).size != 2:
         print(np.unique(cdelt[np.logical_not(is_pol60)], axis=0))
         raise ValueError("Not all images have same pixel size")
-    else:
+    elif np.any(is_pol60):
         for i in np.arange(len(headers))[is_pol60]:
             headers[i]["cdelt1"], headers[i]["cdelt2"] = np.unique(cdelt[np.logical_not(is_pol60)], axis=0)[0]
 
@@ -179,7 +179,7 @@ def save_Stokes(
     header["PROPOSID"] = (header_stokes["PROPOSID"], "PEP proposal identifier for observation")
     header["TARGNAME"] = (header_stokes["TARGNAME"], "Target name")
     header["ORIENTAT"] = (header_stokes["ORIENTAT"], "Angle between North and the y-axis of the image")
-    header["FILENAME"] = (filename, "ORIGINAL FILENAME")
+    header["FILENAME"] = (filename, "Original filename")
     header["BKG_TYPE"] = (header_stokes["BKG_TYPE"], "Bkg estimation method used during reduction")
     header["BKG_SUB"] = (header_stokes["BKG_SUB"], "Amount of bkg subtracted from images")
     header["SMOOTH"] = (header_stokes["SMOOTH"] if "SMOOTH" in list(header_stokes.keys()) else "None", "Smoothing method used during reduction")
@@ -215,7 +215,7 @@ def save_Stokes(
     # Create HDUList object
     hdul = fits.HDUList([])
 
-    # Add I_stokes as PrimaryHDU
+    # Add Flux density as PrimaryHDU
     if flux_data is None:
         header["datatype"] = ("I_stokes", "type of data stored in the HDU")
         I_stokes[(1 - data_mask).astype(bool)] = 0.0
@@ -223,10 +223,16 @@ def save_Stokes(
         primary_hdu.name = "I_stokes"
         hdul.append(primary_hdu)
     else:
-        flux_head["TELESCOP"], flux_head["INSTRUME"] = header["TELESCOP"], header["INSTRUME"]
-        header["datatype"] = ("Flux map", "type of data stored in the HDU")
-        primary_hdu = fits.PrimaryHDU(data=flux_data, header=flux_head)
-        primary_hdu.name = "Flux map"
+        flux_head["FILENAME"] = header["FILENAME"]
+        head = WCS(flux_head).deepcopy().to_header()
+        for key in [key for key in header.keys() if key not in ["SMOOTH", "SAMPLING"]]:
+            try:
+                head[key] = flux_head[key]
+            except KeyError:
+                head[key] = header[key]
+        header["datatype"] = ("Flux_density", "type of data stored in the HDU")
+        primary_hdu = fits.PrimaryHDU(data=flux_data, header=head)
+        primary_hdu.name = "Flux_density"
         hdul.append(primary_hdu)
         header["datatype"] = ("I_stokes", "type of data stored in the HDU")
         I_stokes[(1 - data_mask).astype(bool)] = 0.0
