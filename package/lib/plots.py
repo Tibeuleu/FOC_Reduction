@@ -2951,7 +2951,19 @@ class pol_map(object):
 
     @property
     def wcs(self):
-        return WCS(self.Stokes[0].header).celestial.deepcopy()
+        return WCS(self.Stokes["I_STOKES"].header).celestial.deepcopy()
+
+    @property
+    def Flux(self):
+        return self.Stokes[0].data[0] * self.Stokes[0].header["PHOTFLAM"]
+
+    @property
+    def Flux_err(self):
+        return self.Stokes[0].data[1] * self.Stokes[0].header["PHOTFLAM"]
+
+    @property
+    def Flux_mask(self):
+        return self.Stokes[0].data[2].astype(bool)
 
     @property
     def Flux(self):
