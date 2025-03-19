@@ -20,6 +20,7 @@ import lib.reduction as proj_red  # Functions used in reduction pipeline
 import numpy as np
 from lib.utils import princ_angle, sci_not
 from matplotlib.colors import LogNorm
+from astropy.wcs import WCS
 
 
 def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=False, interactive=False):
@@ -273,7 +274,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         flux_data=np.array([flux_data, flux_error, flux_mask]),
         flux_head=flux_head,
     )
-    outfiles.append("/".join([data_folder, Stokes_hdul["I_STOKES"].header["FILENAME"] + ".fits"]))
+    outfiles.append("/".join([data_folder, Stokes_hdul[0].header["FILENAME"] + ".fits"]))
 
     # Step 5:
     # crop to desired region of interest (roi)
