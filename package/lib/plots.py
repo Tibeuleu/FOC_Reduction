@@ -3575,7 +3575,7 @@ class pol_map(object):
 
     @property
     def wcs(self):
-        return WCS(self.Stokes["I_STOKES"].header).celestial.deepcopy()
+        return WCS(self.Stokes[0].header).celestial.deepcopy()
 
     @property
     def Flux(self):
@@ -3735,7 +3735,7 @@ class pol_map(object):
             back_length=0.0,
             head_length=10.0,
             head_width=10.0,
-            angle=-self.Stokes["I_STOKES"].header["orientat"],
+            angle=-self.Stokes[0].header["orientat"],
             color="white",
             text_props={"ec": None, "fc": "w", "alpha": 1, "lw": 0.4},
             arrow_props={"ec": None, "fc": "w", "alpha": 1, "lw": 1},
