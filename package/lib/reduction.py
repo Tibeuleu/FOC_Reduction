@@ -52,7 +52,6 @@ from scipy.ndimage import rotate as sc_rotate
 from scipy.ndimage import shift as sc_shift
 from scipy.signal import fftconvolve
 
-from .background import bkg_fit, bkg_hist, bkg_mini
 from .convex_hull import image_hull
 from .cross_correlation import phase_cross_correlation
 from .deconvolve import deconvolve_im, gaussian2d, gaussian_psf, zeropad
@@ -308,6 +307,8 @@ def crop_array(data_array, headers, error_array=None, data_mask=None, step=5, nu
         # Update CRPIX value in the associated header
         curr_wcs = WCS(crop_headers[i]).celestial.deepcopy()
         curr_wcs.wcs.crpix[:2] = curr_wcs.wcs.crpix[:2] - np.array([v_array[2], v_array[0]])
+        curr_wcs.array_shape = crop_array[i].shape
+        curr_wcs.wcs.set()
         crop_headers[i].update(curr_wcs.to_header())
         crop_headers[i]["naxis1"], crop_headers[i]["naxis2"] = crop_array[i].shape
 
@@ -523,20 +524,22 @@ def get_error(
     # estimated to less than 3%
     err_flat = data * 0.03
 
+    from .background import bkg_fit, bkg_hist, bkg_mini
+
     if sub_type is None:
         n_data_array, c_error_bkg, headers, background = bkg_hist(
             data, error, mask, headers, subtract_error=subtract_error, display=display, savename=savename, plots_folder=plots_folder
         )
         sub_type, subtract_error = "histogram ", str(int(subtract_error > 0.0))
     elif isinstance(sub_type, str):
-        if sub_type.lower() in ["auto"]:
+        if sub_type.lower() in ["fit"]:
             n_data_array, c_error_bkg, headers, background = bkg_fit(
                 data, error, mask, headers, subtract_error=subtract_error, display=display, savename=savename, plots_folder=plots_folder
             )
             sub_type, subtract_error = "histogram fit ", "mean+%.1fsigma" % subtract_error if subtract_error != 0.0 else 0.0
         else:
             n_data_array, c_error_bkg, headers, background = bkg_hist(
-                data, error, mask, headers, sub_type=sub_type, subtract_error=subtract_error, display=display, savename=savename, plots_folder=plots_folder
+                data, error, mask, headers, n_bins=sub_type, subtract_error=subtract_error, display=display, savename=savename, plots_folder=plots_folder
             )
             sub_type, subtract_error = "histogram ", "mean+%.1fsigma" % subtract_error if subtract_error != 0.0 else 0.0
     elif isinstance(sub_type, tuple):
@@ -665,6 +668,7 @@ def rebin_array(data_array, error_array, headers, pxsize=2, scale="px", operatio
         nw.wcs.cdelt *= Dxy
         nw.wcs.crpix /= Dxy
         nw.array_shape = new_shape
+        nw.wcs.set()
         new_header["NAXIS1"], new_header["NAXIS2"] = nw.array_shape
         new_header["PXAREA"] *= Dxy[0] * Dxy[1]
         for key, val in nw.to_header().items():
@@ -844,7 +848,10 @@ def align_data(
     new_crpix = np.array([wcs.wcs.crpix for wcs in headers_wcs]) + shifts[:, ::-1] + res_shift[::-1]
     for i in range(len(headers_wcs)):
         headers_wcs[i].wcs.crpix = new_crpix[0]
+        headers_wcs[i].array_shape = (res_shape, res_shape)
+        headers_wcs[i].wcs.set()
         headers[i].update(headers_wcs[i].to_header())
+        headers[i]["NAXIS1"], headers[i]["NAXIS2"] = res_shape, res_shape
 
     data_mask = rescaled_mask.all(axis=0)
     data_array, error_array, data_mask, headers = crop_array(rescaled_image, headers, rescaled_error, data_mask, null_val=0.01 * background)
@@ -1706,9 +1713,11 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
 
     new_wcs.wcs.pc = np.dot(mrot, new_wcs.wcs.pc)
     new_wcs.wcs.crpix = np.dot(mrot, new_wcs.wcs.crpix - old_center[::-1]) + new_center[::-1]
+    new_wcs.array_shape = shape
     new_wcs.wcs.set()
     for key, val in new_wcs.to_header().items():
         new_header_stokes.set(key, val)
+    new_header_stokes["NAXIS1"], new_header_stokes["NAXIS2"] = new_wcs.array_shape
     new_header_stokes["ORIENTAT"] += ang
 
     # Nan handling :
@@ -1809,9 +1818,11 @@ def rotate_data(data_array, error_array, data_mask, headers):
         new_wcs = WCS(header).celestial.deepcopy()
         new_wcs.wcs.pc[:2, :2] = np.dot(mrot, new_wcs.wcs.pc[:2, :2])
         new_wcs.wcs.crpix[:2] = np.dot(mrot, new_wcs.wcs.crpix[:2] - old_center[::-1]) + new_center[::-1]
+        new_wcs.array_shape = shape
         new_wcs.wcs.set()
         for key, val in new_wcs.to_header().items():
             new_header[key] = val
+        new_header["NAXIS1"], new_header["NAXIS2"] = new_wcs.array_shape
         new_header["ORIENTAT"] = np.arccos(new_wcs.celestial.wcs.pc[0, 0]) * 180.0 / np.pi
         new_header["ROTATE"] = ang
         new_headers.append(new_header)
