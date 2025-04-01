@@ -20,7 +20,6 @@ import lib.reduction as proj_red  # Functions used in reduction pipeline
 import numpy as np
 from lib.utils import princ_angle, sci_not
 from matplotlib.colors import LogNorm
-from astropy.wcs import WCS
 
 
 def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=False, interactive=False):
