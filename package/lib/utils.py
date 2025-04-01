@@ -177,4 +177,4 @@ def wcs_PA(PC21, PC22):
         orient = np.arccos(PC22) * 180.0 / np.pi
     elif (abs(PC21) < abs(PC22)) and (PC22 < 0):
         orient = -np.arccos(PC22) * 180.0 / np.pi
-    return orient
+    return princ_angle(orient)

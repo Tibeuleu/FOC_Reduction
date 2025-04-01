@@ -16,7 +16,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 from .convex_hull import clean_ROI
-from .utils import wcs_PA
+from .utils import wcs_PA, princ_angle
 
 
 def get_obs_data(infiles, data_folder="", compute_flux=False):
