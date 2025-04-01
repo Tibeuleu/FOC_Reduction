@@ -549,12 +549,12 @@ def polarization_map(
         else:
             vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
         im = ax.imshow(stkI * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        ax.plot(*WCS(Stokes[1]).wcs.crpix, "g+")
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         # levelsI = np.array([0.8, 2.0, 5.0, 10.0, 20.0, 50.0]) / 100.0 * vmax
         # print("Stokes I contour levels : ", levelsI)
         # ax.contour(stkI * convert_flux, levels=levelsI, colors="grey", linewidths=0.5)
         levelsF = np.array([0.8, 2.0, 5.0, 10.0, 20.0, 50.0]) / 100.0 * np.max(flux[flux > 0.0])
-        print("Flux density contour levels : ", levelsF)
         ax.contour(flux, levels=levelsF, transform=ax.get_transform(WCS(Stokes[0].header).celestial), colors="grey", linewidths=0.5)
     elif display.lower() in ["pf", "pol_flux"]:
         # Display polarization flux

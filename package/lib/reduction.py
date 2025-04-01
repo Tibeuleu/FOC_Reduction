@@ -647,7 +647,8 @@ def rebin_array(data_array, error_array, headers, pxsize=2, scale="px", operatio
             pxsize, scale = "", "full"
         else:
             raise ValueError("'{0:s}' invalid scale for binning.".format(scale))
-    new_shape = np.ceil(min(image.shape / Dxy_arr, key=lambda x: x[0] + x[1])).astype(int)
+    new_shape_float = min(image.shape / Dxy_arr, key=lambda x: x[0] + x[1])
+    new_shape = np.ceil(new_shape_float).astype(int)
 
     for i, (image, error, header) in enumerate(list(zip(data_array, error_array, headers))):
         # Get current pixel size
@@ -676,6 +677,7 @@ def rebin_array(data_array, error_array, headers, pxsize=2, scale="px", operatio
         # Update header
         nw = w.deepcopy()
         nw.wcs.cdelt *= Dxy
+        # nw.wcs.crpix += np.abs(new_shape_float - new_shape) * np.array(new_shape) / Dxy
         nw.wcs.crpix /= Dxy
         nw.array_shape = new_shape
         nw.wcs.set()
