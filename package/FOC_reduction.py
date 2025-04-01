@@ -46,8 +46,8 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     display_bkg = True
 
     # Data binning
-    pxsize = 0.10
-    pxscale = "arcsec"  # pixel, arcsec or full
+    pxsize = 4
+    pxscale = "px"  # pixel, arcsec or full
     rebin_operation = "sum"  # sum or average
 
     # Alignement
@@ -60,8 +60,8 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Smoothing
     smoothing_function = "combine"  # gaussian_after, weighted_gaussian_after, gaussian, weighted_gaussian or combine
-    smoothing_FWHM = 0.150  # If None, no smoothing is done
-    smoothing_scale = "arcsec"  # pixel or arcsec
+    smoothing_FWHM = 1.5  # If None, no smoothing is done
+    smoothing_scale = "px"  # pixel or arcsec
 
     # Rotation
     rotate_data = False
