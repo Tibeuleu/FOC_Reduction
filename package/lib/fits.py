@@ -16,7 +16,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 from .convex_hull import clean_ROI
-from .utils import wcs_PA, princ_angle
+from .utils import wcs_PA
 
 
 def get_obs_data(infiles, data_folder="", compute_flux=False):
@@ -78,7 +78,7 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
             for key, val in new_wcs.to_header().items():
                 header[key] = val
         try:
-            header["ORIENTAT"] = princ_angle(float(header["ORIENTAT"]))
+            header["ORIENTAT"] = float(header["ORIENTAT"])
         except KeyError:
             header["ORIENTAT"] = wcs_PA(new_wcs.wcs.pc[1, 0], np.diag(new_wcs.wcs.pc).mean())
 
