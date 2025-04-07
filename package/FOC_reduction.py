@@ -46,8 +46,8 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     display_bkg = False
 
     # Data binning
-    pxsize = 4
-    pxscale = "px"  # pixel, arcsec or full
+    pxsize = 0.10
+    pxscale = "arcsec"  # pixel, arcsec or full
     rebin_operation = "sum"  # sum or average
 
     # Alignement
@@ -60,8 +60,8 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Smoothing
     smoothing_function = "combine"  # gaussian_after, weighted_gaussian_after, gaussian, weighted_gaussian or combine
-    smoothing_FWHM = 1.5  # If None, no smoothing is done
-    smoothing_scale = "px"  # pixel or arcsec
+    smoothing_FWHM = 0.150  # If None, no smoothing is done
+    smoothing_scale = "arcsec"  # pixel or arcsec
 
     # Rotation
     rotate_data = False
@@ -71,7 +71,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     P_cut = 3  # if >=1.0 cut on the signal-to-noise else cut on the confidence level in Q, U
     SNRi_cut = 1.0  # I measurments with SNR>30, which implies an uncertainty in P of 4.7%.
     flux_lim = None  # lowest and highest flux displayed on plot, defaults to bkg and maximum in cut if None
-    scale_vec = 3
+    scale_vec = 5
     step_vec = 1  # plot all vectors in the array. if step_vec = 2, then every other vector will be plotted if step_vec = 0 then all vectors are displayed at full length
 
     # Pipeline start
