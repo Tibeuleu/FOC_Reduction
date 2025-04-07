@@ -1,2 +1,2 @@
 from .lib import *
-from . import FOC_reduction
+from .FOC_reduction import main
