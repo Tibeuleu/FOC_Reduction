@@ -18,7 +18,6 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.time import Time
-from lib.plots import plot_obs
 from matplotlib.colors import LogNorm
 from matplotlib.patches import Rectangle
 from scipy.optimize import curve_fit
@@ -135,6 +134,8 @@ def display_bkg(data, background, std_bkg, headers, histograms=None, binning=Non
 
     fig2.subplots_adjust(hspace=0, wspace=0, right=1.0)
     fig2.colorbar(im2, ax=ax2, location="right", shrink=0.60, aspect=50, pad=0.025, label=r"Flux [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
+
+    from .plots import plot_obs
 
     if savename is not None:
         this_savename = deepcopy(savename)
