@@ -190,8 +190,8 @@ def bin_ndarray(ndarray, new_shape, operation="sum"):
 
     Example
     -------
-    >>> m = np.arange(0,100,1).reshape((10,10))
-    >>> n = bin_ndarray(m, new_shape=(5,5), operation='sum')
+    >>> m = np.arange(0, 100, 1).reshape((10, 10))
+    >>> n = bin_ndarray(m, new_shape=(5, 5), operation="sum")
     >>> print(n)
 
     [[ 22  30  38  46  54]
@@ -278,9 +278,7 @@ def crop_array(data_array, headers, error_array=None, data_mask=None, step=5, nu
     if null_val is None:
         null_val = [1.00 * error.mean() for error in error_array]
     elif type(null_val) is float:
-        null_val = [
-            null_val,
-        ] * error_array.shape[0]
+        null_val = [null_val] * error_array.shape[0]
 
     vertex = np.zeros((data_array.shape[0], 4), dtype=int)
     for i, image in enumerate(data_array):  # Get vertex of the rectangular convex hull of each image
@@ -349,10 +347,7 @@ def crop_array(data_array, headers, error_array=None, data_mask=None, step=5, nu
                 headers,
                 vmin=convert_flux * data_array[data_array > 0.0].mean() / 5.0,
                 vmax=convert_flux * data_array[data_array > 0.0].max(),
-                rectangle=[
-                    rectangle,
-                ]
-                * len(headers),
+                rectangle=[rectangle] * len(headers),
                 savename=savename + "_crop_region",
                 plots_folder=plots_folder,
             )
@@ -632,12 +627,7 @@ def rebin_array(data_array, error_array, headers, pxsize=2, scale="px", operatio
 
         # Compute binning ratio
         if scale.lower() in ["px", "pixel"]:
-            Dxy_arr[i] = np.array(
-                [
-                    pxsize,
-                ]
-                * 2
-            )
+            Dxy_arr[i] = np.array([pxsize] * 2)
             scale = "px"
         elif scale.lower() in ["arcsec", "arcseconds"]:
             Dxy_arr[i] = np.array(pxsize / np.abs(w.wcs.cdelt) / 3600.0)
@@ -947,12 +937,7 @@ def smooth_data(data_array, error_array, data_mask, headers, FWHM=1.5, scale="pi
                 dist_rc = np.where(data_mask, np.sqrt((r - xx) ** 2 + (c - yy) ** 2), fmax)
                 # Catch expected "OverflowWarning" as we overflow values that are not in the image
                 with warnings.catch_warnings(record=True) as w:
-                    g_rc = np.array(
-                        [
-                            np.exp(-0.5 * (dist_rc / stdev) ** 2) / (2.0 * np.pi * stdev**2),
-                        ]
-                        * data_array.shape[0]
-                    )
+                    g_rc = np.array([np.exp(-0.5 * (dist_rc / stdev) ** 2) / (2.0 * np.pi * stdev**2)] * data_array.shape[0])
                     # Apply weighted combination
                     smoothed[r, c] = np.where(data_mask[r, c], np.sum(data_array * weight * g_rc) / np.sum(weight * g_rc), data_array.mean(axis=0)[r, c])
                     error[r, c] = np.where(
@@ -1447,9 +1432,7 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
         all_Q_stokes = np.zeros((np.unique(rotate).size, data_array.shape[1], data_array.shape[2]))
         all_U_stokes = np.zeros((np.unique(rotate).size, data_array.shape[1], data_array.shape[2]))
         all_Stokes_cov = np.zeros((np.unique(rotate).size, 3, 3, data_array.shape[1], data_array.shape[2]))
-        all_header_stokes = [
-            {},
-        ] * np.unique(rotate).size
+        all_header_stokes = [{}] * np.unique(rotate).size
 
         for i, rot in enumerate(np.unique(rotate)):
             rot_mask = rotate == rot

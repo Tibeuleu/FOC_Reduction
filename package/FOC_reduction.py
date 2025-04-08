@@ -290,12 +290,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     print(
         "F_int({0:.0f} Angs) = ({1} ± {2})e{3} ergs.cm^-2.s^-1.Angs^-1".format(
             flux_head["PHOTPLAM"],
-            *sci_not(
-                flux_data[flux_mask].sum() * flux_head["PHOTFLAM"],
-                np.sqrt(np.sum(flux_error[flux_mask] ** 2)) * flux_head["PHOTFLAM"],
-                2,
-                out=int,
-            ),
+            *sci_not(flux_data[flux_mask].sum() * flux_head["PHOTFLAM"], np.sqrt(np.sum(flux_error[flux_mask] ** 2)) * flux_head["PHOTFLAM"], 2, out=int),
         )
     )
     print("P_int = {0:.1f} ± {1:.1f} %".format(header_stokes["p_int"] * 100.0, np.ceil(header_stokes["sP_int"] * 1000.0) / 10.0))
