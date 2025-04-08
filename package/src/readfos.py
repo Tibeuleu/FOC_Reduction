@@ -271,18 +271,9 @@ class specpol(object):
         """
         data_dump = np.loadtxt(join_path(data_dir, filename), skiprows=1).T
         self.zero(data_dump.shape[1])
-        (
-            self.wav,
-            self.wav_err[:, 0],
-            self.I,
-            self.IQUV_cov[0, 0],
-            self.Q,
-            self.IQUV_cov[1, 1],
-            self.U,
-            self.IQUV_cov[2, 2],
-            self.V,
-            self.IQUV_cov[3, 3],
-        ) = data_dump[:10]
+        (self.wav, self.wav_err[:, 0], self.I, self.IQUV_cov[0, 0], self.Q, self.IQUV_cov[1, 1], self.U, self.IQUV_cov[2, 2], self.V, self.IQUV_cov[3, 3]) = (
+            data_dump[:10]
+        )
         self.wav_err[:, 1] = deepcopy(self.wav_err[:, 0])
         self.bin_edges[:-1], self.bin_edges[-1] = deepcopy(self.wav - self.wav_err[:, 0]), deepcopy(self.wav[-1] + self.wav_err[-1, 1])
         for i in range(4):
@@ -314,11 +305,7 @@ class specpol(object):
                 self.PA_err,
             ]
         ).T
-        np.savetxt(
-            join_path(output_dir, filename + ".txt"),
-            data_dump,
-            header=header,
-        )
+        np.savetxt(join_path(output_dir, filename + ".txt"), data_dump, header=header)
         return join_path(output_dir, filename)
 
     def plot(self, fig=None, ax=None, savename=None, plots_folder=""):

@@ -173,11 +173,7 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
 
     observations = Observations.query_criteria(obs_id=list(results["Dataset"][b]))
     products = Observations.filter_products(
-        Observations.get_product_list(observations),
-        productType=["SCIENCE"],
-        dataproduct_type=dataproduct_type,
-        calib_level=[2],
-        description=description,
+        Observations.get_product_list(observations), productType=["SCIENCE"], dataproduct_type=dataproduct_type, calib_level=[2], description=description
     )
 
     products["proposal_id"] = Column(products["proposal_id"], dtype="U35")

@@ -15,17 +15,7 @@ Radio = fits.open("./data/NGC1068/MERLIN-VLA/Combined_crop.fits")
 
 levels = np.logspace(-0.5, 1.99, 7) / 100.0 * Stokes_UV[0].data.max() * Stokes_UV[0].header["photflam"]
 A = overplot_pol(Stokes_UV, Radio, norm=LogNorm())
-A.plot(
-    levels=levels,
-    P_cut=0.99,
-    SNRi_cut=1.0,
-    scale_vec=3,
-    step_vec=1,
-    norm=LogNorm(5e-5, 1e-1),
-    cmap="inferno_r",
-    width=0.8,
-    linewidth=1.2,
-)
+A.plot(levels=levels, P_cut=0.99, SNRi_cut=1.0, scale_vec=3, step_vec=1, norm=LogNorm(5e-5, 1e-1), cmap="inferno_r", width=0.8, linewidth=1.2)
 A.add_vector(
     A.other_wcs.celestial.wcs.crpix - (1.0, 1.0),
     pol_deg=0.124,
