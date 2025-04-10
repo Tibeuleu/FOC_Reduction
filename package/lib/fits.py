@@ -65,24 +65,25 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
     for wcs, header in zip(wcs_array, headers):
         new_wcs = wcs.deepcopy()
         if new_wcs.wcs.has_cd():
+            # Update WCS with relevant information
             del new_wcs.wcs.cd
             keys = list(new_wcs.to_header().keys()) + ["CD1_1", "CD1_2", "CD1_3", "CD2_1", "CD2_2", "CD2_3", "CD3_1", "CD3_2", "CD3_3"]
             for key in keys:
                 header.remove(key, ignore_missing=True)
-            cdelt, orient = wcs_CD_to_PC(wcs.wcs.cd)
-            new_wcs.wcs.pc = wcs.wcs.cd.dot(np.diag(1.0 / cdelt))
-            new_wcs.wcs.cdelt = cdelt
+            new_cdelt = np.linalg.eigvals(wcs.wcs.cd)
+            new_wcs.wcs.pc = wcs.wcs.cd.dot(np.diag(1.0 / new_cdelt))
+            new_wcs.wcs.cdelt = new_cdelt
             try:
                 header["ORIENTAT"] = float(header["ORIENTAT"])
             except KeyError:
-                header["ORIENTAT"] = -orient
-        elif new_wcs.wcs.has_pc() and (new_wcs.wcs.cdelt[:2] != np.array([1.0, 1.0])).all():
+                header["ORIENTAT"] = -wcs_CD_to_PC(new_wcs.wcs.cd)[1]
+        elif (new_wcs.wcs.cdelt[:2] != np.array([1.0, 1.0])).all():
             try:
                 header["ORIENTAT"] = float(header["ORIENTAT"])
             except KeyError:
                 header["ORIENTAT"] = -wcs_PA(new_wcs.wcs.pc, new_wcs.wcs.cdelt)
         else:
-            print("Could not compute ORIENTAT or CDELT from WCS")
+            print("Couldn't compute ORIENTAT from WCS")
         for key, val in new_wcs.to_header().items():
             header[key] = val
 

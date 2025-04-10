@@ -363,7 +363,7 @@ def polarization_map(
         fig = plt.figure(figsize=(7 * ratiox, 7 * ratioy), layout="constrained")
     if ax is None:
         ax = fig.add_subplot(111, projection=wcs)
-        ax.set(aspect="equal", fc="k")
+        ax.set(aspect="equal", fc="k")  # , ylim=[-0.05 * stkI.shape[0], 1.05 * stkI.shape[0]])
     # fig.subplots_adjust(hspace=0, wspace=0, left=0.102, right=1.02)
 
     # ax.coords.grid(True, color='white', ls='dotted', alpha=0.5)
@@ -444,7 +444,7 @@ def polarization_map(
     elif display.lower() in ["p", "pol", "pol_deg"]:
         # Display polarization degree map
         display = "p"
-        vmin, vmax = 0.0, 100.0
+        vmin, vmax = 0.0, min(pol[np.isfinite(pol)].max(), 1.0) * 100.0
         im = ax.imshow(pol * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$P$ [%]")
     elif display.lower() in ["pa", "pang", "pol_ang"]:
@@ -529,7 +529,7 @@ def polarization_map(
     PA_diluted = Stokes[0].header["PA_int"]
     PA_diluted_err = Stokes[0].header["sPA_int"]
 
-    plt.rcParams.update({"font.size": 11})
+    plt.rcParams.update({"font.size": 12})
     px_size = wcs.wcs.get_cdelt()[0] * 3600.0
     px_sc = AnchoredSizeBar(ax.transData, 1.0 / px_size, "1 arcsec", 3, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color)
     north_dir = AnchoredDirectionArrows(
@@ -2783,12 +2783,12 @@ class pol_map(object):
         def submit_save(expression):
             ax_text_save.set(visible=False)
             if expression != "":
-                save_fig, save_ax = plt.subplots(figsize=(12, 10), layout="constrained", subplot_kw=dict(projection=self.wcs))
+                save_fig, save_ax = plt.subplots(figsize=(8, 6), layout="constrained", subplot_kw=dict(projection=self.wcs))
                 self.ax_cosmetics(ax=save_ax)
                 self.display(fig=save_fig, ax=save_ax)
                 self.pol_vector(fig=save_fig, ax=save_ax)
                 self.pol_int(fig=save_fig, ax=save_ax)
-                save_fig.suptitle(r"{0:s} with $SNR_{{p}} \geq$ {1:d} and $SNR_{{I}} \geq$ {2:d}".format(self.targ, int(self.SNRp), int(self.SNRi)))
+                # save_fig.suptitle(r"{0:s} with $SNR_{{p}} \geq$ {1:d} and $SNR_{{I}} \geq$ {2:d}".format(self.targ, int(self.SNRp), int(self.SNRi)))
                 if expression[-4:] not in [".png", ".jpg", ".pdf"]:
                     expression += ".pdf"
                 save_fig.savefig(expression, bbox_inches="tight", dpi=150, facecolor="None")
@@ -3044,8 +3044,8 @@ class pol_map(object):
             sep_y=0.01,
             sep_x=0.01,
             back_length=0.0,
-            head_length=10.0,
-            head_width=10.0,
+            head_length=7.5,
+            head_width=7.5,
             angle=-self.Stokes[0].header["orientat"],
             color="white",
             text_props={"ec": None, "fc": "w", "alpha": 1, "lw": 0.4},
@@ -3425,7 +3425,7 @@ class pol_map(object):
                 fontsize=12,
                 xy=(0.01, 1.00),
                 xycoords="axes fraction",
-                path_effects=[pe.withStroke(linewidth=0.5, foreground="k")],
+                path_effects=[pe.withStroke(linewidth=1.0, foreground="k")],
                 verticalalignment="top",
                 horizontalalignment="left",
             )
@@ -3461,7 +3461,7 @@ class pol_map(object):
                 fontsize=12,
                 xy=(0.01, 1.00),
                 xycoords="axes fraction",
-                path_effects=[pe.withStroke(linewidth=0.5, foreground="k")],
+                path_effects=[pe.withStroke(linewidth=1.0, foreground="k")],
                 verticalalignment="top",
                 horizontalalignment="left",
             )
