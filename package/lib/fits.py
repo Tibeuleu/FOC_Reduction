@@ -16,7 +16,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 from .convex_hull import clean_ROI
-from .utils import wcs_PA
+from .utils import wcs_CD_to_PC, wcs_PA
 
 
 def get_obs_data(infiles, data_folder="", compute_flux=False):
@@ -61,26 +61,30 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
     for i in range(len(data_array)):
         data_array[i][data_array[i] < 0.0] = 0.0
 
-    # force WCS to convention PCi_ja unitary, cdelt in deg
+    # Compute CDELT, ORIENTAT from header
     for wcs, header in zip(wcs_array, headers):
         new_wcs = wcs.deepcopy()
-        if new_wcs.wcs.has_cd() or (new_wcs.wcs.cdelt[:2] == np.array([1.0, 1.0])).all():
-            # Update WCS with relevant information
-            if new_wcs.wcs.has_cd():
-                del new_wcs.wcs.cd
-                keys = list(new_wcs.to_header().keys()) + ["CD1_1", "CD1_2", "CD1_3", "CD2_1", "CD2_2", "CD2_3", "CD3_1", "CD3_2", "CD3_3"]
-                for key in keys:
-                    header.remove(key, ignore_missing=True)
-                new_cdelt = np.linalg.eigvals(wcs.wcs.cd)
-                # new_cdelt.sort()
-            new_wcs.wcs.pc = wcs.wcs.cd.dot(np.diag(1.0 / new_cdelt))
-            new_wcs.wcs.cdelt = new_cdelt
-            for key, val in new_wcs.to_header().items():
-                header[key] = val
-        try:
-            header["ORIENTAT"] = float(header["ORIENTAT"])
-        except KeyError:
-            header["ORIENTAT"] = wcs_PA(new_wcs.wcs.pc[1, 0], np.diag(new_wcs.wcs.pc).mean())
+        if new_wcs.wcs.has_cd():
+            del new_wcs.wcs.cd
+            keys = list(new_wcs.to_header().keys()) + ["CD1_1", "CD1_2", "CD1_3", "CD2_1", "CD2_2", "CD2_3", "CD3_1", "CD3_2", "CD3_3"]
+            for key in keys:
+                header.remove(key, ignore_missing=True)
+            cdelt, orient = wcs_CD_to_PC(wcs.wcs.cd)
+            new_wcs.wcs.pc = wcs.wcs.cd.dot(np.diag(1.0 / cdelt))
+            new_wcs.wcs.cdelt = cdelt
+            try:
+                header["ORIENTAT"] = float(header["ORIENTAT"])
+            except KeyError:
+                header["ORIENTAT"] = -orient
+        elif new_wcs.wcs.has_pc() and (new_wcs.wcs.cdelt[:2] != np.array([1.0, 1.0])).all():
+            try:
+                header["ORIENTAT"] = float(header["ORIENTAT"])
+            except KeyError:
+                header["ORIENTAT"] = -wcs_PA(new_wcs.wcs.pc, new_wcs.wcs.cdelt)
+        else:
+            print("Could not compute ORIENTAT or CDELT from WCS")
+        for key, val in new_wcs.to_header().items():
+            header[key] = val
 
     # force WCS for POL60 to have same pixel size as POL0 and POL120
     is_pol60 = np.array([head["filtnam1"].lower() == "pol60" for head in headers], dtype=bool)

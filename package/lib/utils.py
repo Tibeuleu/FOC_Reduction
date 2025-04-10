@@ -154,27 +154,46 @@ def sci_not(v, err, rnd=1, out=str):
         return *output[1:], -power
 
 
-def wcs_PA(PC21, PC22):
+def wcs_CD_to_PC(CD):
     """
     Return the position angle in degrees to the North direction of a wcs
     from the values of coefficient of its transformation matrix.
     ----------
     Inputs:
-    PC21 : float
-        Value of the WCS matric PC[1,0]
-    PC22 : float
-        Value of the WCS matric PC[1,1]
+    CD : np.ndarray
+        Value of the WCS matrix CD
+    ----------
+    Returns:
+    cdelt : (float, float)
+        Scaling factor in arcsec between pixel in X and Y directions.
+    orient : float
+        Angle in degrees between the North direction and the Up direction of the WCS.
+    """
+    det = CD[0, 0] * CD[1, 1] - CD[0, 1] * CD[1, 0]
+    sgn = -1.0 if det < 0 else 1.0
+    cdelt = np.array([sgn, 1.0]) * np.sqrt(np.sum(CD**2, axis=1))
+    rot = np.arctan2(-CD[1, 0], sgn * CD[0, 0])
+    rot2 = np.arctan2(sgn * CD[0, 1], CD[1, 1])
+    orient = 0.5 * (rot + rot2) * 180.0 / np.pi
+    return cdelt, orient
+
+
+def wcs_PA(PC, cdelt):
+    """
+    Return the position angle in degrees to the North direction of a wcs
+    from the values of coefficient of its transformation matrix.
+    ----------
+    Inputs:
+    PC : np.ndarray
+        Value of the WCS matrix PC
+    cdelt : (float, float)
+        Scaling factor in arcsec between pixel in X and Y directions.
     ----------
     Returns:
     orient : float
         Angle in degrees between the North direction and the Up direction of the WCS.
     """
-    if (abs(PC21) > abs(PC22)) and (PC21 >= 0):
-        orient = -np.arccos(PC22) * 180.0 / np.pi
-    elif (abs(PC21) > abs(PC22)) and (PC21 < 0):
-        orient = np.arccos(PC22) * 180.0 / np.pi
-    elif (abs(PC21) < abs(PC22)) and (PC22 >= 0):
-        orient = np.arccos(PC22) * 180.0 / np.pi
-    elif (abs(PC21) < abs(PC22)) and (PC22 < 0):
-        orient = -np.arccos(PC22) * 180.0 / np.pi
+    rot = np.pi / 2.0 - np.arctan2(-cdelt[1] * PC[1, 0], abs(cdelt[0]) * PC[0, 0])
+    rot2 = np.pi / 2.0 - np.arctan2(abs(cdelt[0]) * PC[0, 1], cdelt[1] * PC[1, 1])
+    orient = 0.5 * (rot + rot2) * 180.0 / np.pi
     return orient
