@@ -217,7 +217,7 @@ def save_Stokes(
 
     # Add Flux density as PrimaryHDU
     if flux_data is None:
-        header["datatype"] = ("I_stokes", "type of data stored in the HDU")
+        header["DATATYPE"] = ("I_stokes", "type of data stored in the HDU")
         I_stokes[(1 - data_mask).astype(bool)] = 0.0
         primary_hdu = fits.PrimaryHDU(data=I_stokes, header=header)
         primary_hdu.name = "I_stokes"
@@ -230,11 +230,11 @@ def save_Stokes(
                 head[key] = flux_head[key]
             except KeyError:
                 head[key] = header[key]
-        header["datatype"] = ("Flux_density", "type of data stored in the HDU")
+        header["DATATYPE"] = ("Flux_density", "type of data stored in the HDU")
         primary_hdu = fits.PrimaryHDU(data=flux_data, header=head)
         primary_hdu.name = "Flux_density"
         hdul.append(primary_hdu)
-        header["datatype"] = ("I_stokes", "type of data stored in the HDU")
+        header["DATATYPE"] = ("I_stokes", "type of data stored in the HDU")
         I_stokes[(1 - data_mask).astype(bool)] = 0.0
         image_hdu = fits.ImageHDU(data=I_stokes, header=header)
         image_hdu.name = "I_stokes"
@@ -255,7 +255,7 @@ def save_Stokes(
         [data_mask, "Data_mask"],
     ]:
         hdu_header = header.copy()
-        hdu_header["datatype"] = name
+        hdu_header["DATATYPE"] = name
         if not name == "IQU_cov_matrix":
             data[(1 - data_mask).astype(bool)] = 0.0
         hdu = fits.ImageHDU(data=data, header=hdu_header)

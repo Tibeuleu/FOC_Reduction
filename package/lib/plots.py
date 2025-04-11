@@ -2951,7 +2951,7 @@ class pol_map(object):
 
     @property
     def wcs(self):
-        return WCS(self.Stokes[0].header).celestial.deepcopy()
+        return WCS(self.Stokes["I_STOKES"].header).celestial.deepcopy()
 
     @property
     def Flux(self):
@@ -3042,7 +3042,7 @@ class pol_map(object):
         return self.Stokes["DATA_MASK"].data.astype(bool)
 
     def set_data_mask(self, mask):
-        self.Stokes[np.argmax([self.Stokes[i].header["datatype"] == "Data_mask" for i in range(len(self.Stokes))])].data = mask.astype(float)
+        self.Stokes["DATA_MASK"].data = mask.astype(float)
 
     @property
     def cut(self):
