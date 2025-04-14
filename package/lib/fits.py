@@ -213,10 +213,10 @@ def save_Stokes(
         [P, "Pol_deg"],
         [debiased_P, "Pol_deg_debiased"],
         [s_P, "Pol_deg_err"],
-        [s_P_P, "Pol_deg_err_Poisson_noise"],
+        [s_P_P, "Pol_deg_stat_err"],
         [PA, "Pol_ang"],
         [s_PA, "Pol_ang_err"],
-        [s_PA_P, "Pol_ang_err_Poisson_noise"],
+        [s_PA_P, "Pol_ang_stat_err"],
         [data_mask, "Data_mask"],
     ]:
         hdu_header = header.copy()
