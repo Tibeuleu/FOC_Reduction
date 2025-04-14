@@ -2463,9 +2463,11 @@ class pol_map(object):
         ax_snr_reset = self.fig.add_axes([0.060, 0.020, 0.05, 0.02])
         ax_snr_conf = self.fig.add_axes([0.115, 0.020, 0.05, 0.02])
         SNRi_max = np.max(self.I[self.IQU_cov[0, 0] > 0.0] / np.sqrt(self.IQU_cov[0, 0][self.IQU_cov[0, 0] > 0.0]))
-        SNRp_max = np.max(self.P[self.s_P > 0.0] / self.s_P[self.s_P > 0.0])
+        SNRp_max = np.max(self.P[self.P_ERR > 0.0] / self.P_ERR[self.P_ERR > 0.0])
         s_I_cut = Slider(ax_I_cut, r"$SNR^{I}_{cut}$", 1.0, int(SNRi_max * 0.95), valstep=1, valinit=self.SNRi_cut)
-        self.s_P_cut = Slider(self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99)
+        self.P_ERR_cut = Slider(
+            self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99
+        )
         s_vec_sc = Slider(ax_vec_sc, r"Vec scale", 0.0, 10.0, valstep=1, valinit=self.scale_vec)
         b_snr_reset = Button(ax_snr_reset, "Reset")
         b_snr_reset.label.set_fontsize(8)
@@ -2493,7 +2495,7 @@ class pol_map(object):
 
         def reset_snr(event):
             s_I_cut.reset()
-            self.s_P_cut.reset()
+            self.P_ERR_cut.reset()
             s_vec_sc.reset()
 
         def toggle_snr_conf(event=None):
@@ -2502,21 +2504,21 @@ class pol_map(object):
             if self.snr_conf:
                 self.snr_conf = 0
                 b_snr_conf.label.set_text("Conf")
-                self.s_P_cut = Slider(
+                self.P_ERR_cut = Slider(
                     self.ax_P_cut, r"$SNR^{P}_{cut}$", 1.0, max(int(SNRp_max * 0.95), 3), valstep=1, valinit=self.P_cut if P_cut >= 1.0 else 3
                 )
             else:
                 self.snr_conf = 1
                 b_snr_conf.label.set_text("SNR")
-                self.s_P_cut = Slider(
+                self.P_ERR_cut = Slider(
                     self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99
                 )
-            self.s_P_cut.on_changed(update_snrp)
-            update_snrp(self.s_P_cut.val)
+            self.P_ERR_cut.on_changed(update_snrp)
+            update_snrp(self.P_ERR_cut.val)
             self.fig.canvas.draw_idle()
 
         s_I_cut.on_changed(update_snri)
-        self.s_P_cut.on_changed(update_snrp)
+        self.P_ERR_cut.on_changed(update_snrp)
         s_vec_sc.on_changed(update_vecsc)
         b_snr_reset.on_clicked(reset_snr)
         b_snr_conf.on_clicked(toggle_snr_conf)
@@ -2962,7 +2964,7 @@ class pol_map(object):
         return self.Stokes["POL_DEG_DEBIASED"].data
 
     @property
-    def s_P(self):
+    def P_ERR(self):
         return self.Stokes["POL_DEG_ERR"].data
 
     @property
@@ -2970,7 +2972,7 @@ class pol_map(object):
         return self.Stokes["POL_ANG"].data
 
     @property
-    def s_PA(self):
+    def PA_ERR(self):
         return self.Stokes["POL_ANG_ERR"].data
 
     @property
@@ -2986,7 +2988,7 @@ class pol_map(object):
         SNRp_mask, SNRi_mask = (np.zeros(self.P.shape).astype(bool), np.zeros(self.I.shape).astype(bool))
         SNRi_mask[s_I > 0.0] = self.I[s_I > 0.0] / s_I[s_I > 0.0] > self.SNRi
         if self.SNRp >= 1.0:
-            SNRp_mask[self.s_P > 0.0] = self.P[self.s_P > 0.0] / self.s_P[self.s_P > 0.0] > self.SNRp
+            SNRp_mask[self.P_ERR > 0.0] = self.P[self.P_ERR > 0.0] / self.P_ERR[self.P_ERR > 0.0] > self.SNRp
         else:
             SNRp_mask = self.conf > self.SNRp
         return np.logical_and(SNRi_mask, SNRp_mask)
@@ -3054,7 +3056,7 @@ class pol_map(object):
         ax.add_artist(self.north_dir)
 
     def display(self, fig=None, ax=None, flux_lim=None):
-        norm = None
+        kwargs = dict([])
         if self.display_selection is None:
             self.display_selection = "total_flux"
         if flux_lim is None:
@@ -3065,7 +3067,7 @@ class pol_map(object):
                 vmin, vmax = (1.0 / 2.0 * np.median(self.data[self.data > 0.0]), np.max(self.data[self.data > 0.0]))
             else:
                 vmin, vmax = flux_lim
-            norm = LogNorm(vmin, vmax)
+            kwargs["norm"] = LogNorm(vmin, vmax)
             label = r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]"
         elif self.display_selection.lower() in ["pol_flux"]:
             self.data = self.I * self.map_convert * self.P
@@ -3073,28 +3075,32 @@ class pol_map(object):
                 vmin, vmax = (1.0 / 2.0 * np.median(self.I[self.I > 0.0] * self.map_convert), np.max(self.I[self.I > 0.0] * self.map_convert))
             else:
                 vmin, vmax = flux_lim
-            norm = LogNorm(vmin, vmax)
+            kwargs["norm"] = LogNorm(vmin, vmax)
             label = r"$P \cdot F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]"
         elif self.display_selection.lower() in ["pol_deg"]:
             self.data = self.P * 100.0
-            vmin, vmax = 0.0, np.max(self.data[self.P > self.s_P])
+            kwargs["vmin"], kwargs["vmax"] = 0.0, np.max(self.data[self.P > self.P_ERR])
+            kwargs["alpha"] = 1.0 - 0.75 * (self.P < self.P_ERR)
             label = r"$P$ [%]"
         elif self.display_selection.lower() in ["pol_ang"]:
             self.data = princ_angle(self.PA)
-            vmin, vmax = 0, 180.0
+            kwargs["vmin"], kwargs["vmax"] = 0, 180.0
+            kwargs["alpha"] = 1.0 - 0.75 * (self.P < self.P_ERR)
             label = r"$\theta_{P}$ [°]"
         elif self.display_selection.lower() in ["snri"]:
             s_I = np.sqrt(self.IQU_cov[0, 0])
             SNRi = np.zeros(self.I.shape)
             SNRi[s_I > 0.0] = self.I[s_I > 0.0] / s_I[s_I > 0.0]
             self.data = SNRi
-            vmin, vmax = 0.0, np.max(self.data[self.data > 0.0])
+            kwargs["alpha"] = 1.0 - 0.75 * (self.I < s_I)
+            kwargs["vmin"], kwargs["vmax"] = 0.0, np.max(self.data[self.data > 0.0])
             label = r"$I_{Stokes}/\sigma_{I}$"
         elif self.display_selection.lower() in ["snrp"]:
             SNRp = np.zeros(self.P.shape)
-            SNRp[self.s_P > 0.0] = self.P[self.s_P > 0.0] / self.s_P[self.s_P > 0.0]
+            SNRp[self.P_ERR > 0.0] = self.P[self.P_ERR > 0.0] / self.P_ERR[self.P_ERR > 0.0]
             self.data = SNRp
-            vmin, vmax = 0.0, np.max(self.data[self.data > 0.0])
+            kwargs["alpha"] = 1.0 - 0.75 * (self.P < self.P_ERR)
+            kwargs["vmin"], kwargs["vmax"] = 0.0, np.max(self.data[self.data > 0.0])
             label = r"$P/\sigma_{P}$"
 
         if fig is None:
@@ -3105,20 +3111,14 @@ class pol_map(object):
                 self.cbar.remove()
             if hasattr(self, "im"):
                 self.im.remove()
-            if norm is not None:
-                self.im = ax.imshow(self.data, norm=norm, aspect="equal", cmap="inferno")
-            else:
-                self.im = ax.imshow(self.data, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno")
+            self.im = ax.imshow(self.data, aspect="equal", cmap="inferno", **kwargs)
             plt.rcParams.update({"font.size": 14})
             self.cbar = fig.colorbar(self.im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=label)
             plt.rcParams.update({"font.size": 10})
             fig.canvas.draw_idle()
             return self.im
         else:
-            if norm is not None:
-                im = ax.imshow(self.data, norm=norm, aspect="equal", cmap="inferno")
-            else:
-                im = ax.imshow(self.data, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno")
+            im = ax.imshow(self.data, aspect="equal", cmap="inferno", **kwargs)
             ax.set_xlim(0, self.data.shape[1])
             ax.set_ylim(0, self.data.shape[0])
             plt.rcParams.update({"font.size": 14})
@@ -3163,12 +3163,12 @@ class pol_map(object):
             )
             if self.pa_err:
                 XY_U_err1, XY_V_err1 = (
-                    P_cut * np.cos(np.pi / 2.0 + (self.PA + 3.0 * self.s_PA) * np.pi / 180.0),
-                    P_cut * np.sin(np.pi / 2.0 + (self.PA + 3.0 * self.s_PA) * np.pi / 180.0),
+                    P_cut * np.cos(np.pi / 2.0 + (self.PA + 3.0 * self.P_ERRA) * np.pi / 180.0),
+                    P_cut * np.sin(np.pi / 2.0 + (self.PA + 3.0 * self.P_ERRA) * np.pi / 180.0),
                 )
                 XY_U_err2, XY_V_err2 = (
-                    P_cut * np.cos(np.pi / 2.0 + (self.PA - 3.0 * self.s_PA) * np.pi / 180.0),
-                    P_cut * np.sin(np.pi / 2.0 + (self.PA - 3.0 * self.s_PA) * np.pi / 180.0),
+                    P_cut * np.cos(np.pi / 2.0 + (self.PA - 3.0 * self.P_ERRA) * np.pi / 180.0),
+                    P_cut * np.sin(np.pi / 2.0 + (self.PA - 3.0 * self.P_ERRA) * np.pi / 180.0),
                 )
                 if hasattr(self, "quiver_err1"):
                     self.quiver_err1.remove()
@@ -3232,12 +3232,12 @@ class pol_map(object):
             )
             if self.pa_err:
                 XY_U_err1, XY_V_err1 = (
-                    P_cut * np.cos(np.pi / 2.0 + (self.PA + 3.0 * self.s_PA) * np.pi / 180.0),
-                    P_cut * np.sin(np.pi / 2.0 + (self.PA + 3.0 * self.s_PA) * np.pi / 180.0),
+                    P_cut * np.cos(np.pi / 2.0 + (self.PA + 3.0 * self.P_ERRA) * np.pi / 180.0),
+                    P_cut * np.sin(np.pi / 2.0 + (self.PA + 3.0 * self.P_ERRA) * np.pi / 180.0),
                 )
                 XY_U_err2, XY_V_err2 = (
-                    P_cut * np.cos(np.pi / 2.0 + (self.PA - 3.0 * self.s_PA) * np.pi / 180.0),
-                    P_cut * np.sin(np.pi / 2.0 + (self.PA - 3.0 * self.s_PA) * np.pi / 180.0),
+                    P_cut * np.cos(np.pi / 2.0 + (self.PA - 3.0 * self.P_ERRA) * np.pi / 180.0),
+                    P_cut * np.sin(np.pi / 2.0 + (self.PA - 3.0 * self.P_ERRA) * np.pi / 180.0),
                 )
                 ax.quiver(
                     X[:: self.step_vec, :: self.step_vec],
