@@ -224,7 +224,9 @@ def bin_ndarray(ndarray, new_shape, operation="sum"):
     return ndarray
 
 
-def crop_array(data_array, headers, error_array=None, data_mask=None, step=5, null_val=None, inside=False, display=False, savename=None, plots_folder=""):
+def crop_array(
+    data_array, headers, error_array=None, data_mask=None, step=5, null_val=None, crop=True, inside=False, display=False, savename=None, plots_folder=""
+):
     """
     Homogeneously crop an array: all contained images will have the same shape.
     'inside' parameter will decide how much should be cropped.
@@ -256,6 +258,10 @@ def crop_array(data_array, headers, error_array=None, data_mask=None, step=5, nu
         If None, will be put to 75% of the mean value of the associated error
         array.
         Defaults to None.
+    crop : boolean, optional
+        If True, data_array will be cropped down to contain only relevant data.
+        If False, this information will be kept in the crop_mask output.
+        Defaults to True.
     inside : boolean, optional
         If True, the cropped image will be the maximum rectangle included
         inside the image. If False, the cropped image will be the minimum
@@ -295,6 +301,9 @@ def crop_array(data_array, headers, error_array=None, data_mask=None, step=5, nu
         v_array[1] = np.max(vertex[:, 1]).astype(int)
         v_array[2] = np.min(vertex[:, 2]).astype(int)
         v_array[3] = np.max(vertex[:, 3]).astype(int)
+    if data_mask is None:
+        data_mask = np.zeros(data_array[0].shape).astype(bool)
+        data_mask[v_array[0] : v_array[1], v_array[2] : v_array[3]] = True
 
     new_shape = np.array([v_array[1] - v_array[0], v_array[3] - v_array[2]])
     rectangle = [v_array[2], v_array[0], new_shape[1], new_shape[0], 0.0, "b"]
@@ -352,11 +361,11 @@ def crop_array(data_array, headers, error_array=None, data_mask=None, step=5, nu
             )
         plt.show()
 
-    if data_mask is not None:
+    if crop:
         crop_mask = data_mask[v_array[0] : v_array[1], v_array[2] : v_array[3]]
         return crop_array, crop_error_array, crop_mask, crop_headers
     else:
-        return crop_array, crop_error_array, crop_headers
+        return data_array, error_array, data_mask, headers
 
 
 def deconvolve_array(data_array, headers, psf="gaussian", FWHM=1.0, scale="px", shape=None, iterations=20, algo="richardson"):
@@ -1495,10 +1504,10 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
         header_stokes["PA_int"] = (PA_diluted, "Integrated polarization angle")
         header_stokes["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
 
-    return I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes
+    return I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, coeff_stokes, sigma_flux
 
 
-def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes):
+def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, coeff_stokes=None, sigma_flux=None):
     """
     Compute the polarization degree (in %) and angle (in deg) and their
     respective errors from given Stokes parameters.
@@ -1573,26 +1582,42 @@ def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes):
     s_P[np.isnan(s_P)] = fmax
     s_PA[np.isnan(s_PA)] = fmax
 
-    # Catch expected "OverflowWarning" as wrong pixel have an overflowing error
-    with warnings.catch_warnings(record=True) as _:
-        mask2 = P**2 >= s_P**2
-    debiased_P = np.zeros(I_stokes.shape)
-    debiased_P[mask2] = np.sqrt(P[mask2] ** 2 - s_P[mask2] ** 2)
-
-    if (debiased_P > 1.0).any():
-        print("WARNING : found {0:d} pixels for which debiased_P > 100%".format(debiased_P[debiased_P > 1.0].size))
-
     # Compute the total exposure time so that
     # I_stokes*exp_tot = N_tot the total number of events
-    exp_tot = header_stokes["exptime"]
-    # print("Total exposure time : {} sec".format(exp_tot))
-    N_obs = I_stokes * exp_tot
+    N_obs = I_stokes * float(header_stokes["exptime"])
 
     # Errors on P, PA supposing Poisson noise
     s_P_P = np.ones(I_stokes.shape) * fmax
-    s_P_P[mask] = np.sqrt(2.0) / np.sqrt(N_obs[mask]) * 100.0
     s_PA_P = np.ones(I_stokes.shape) * fmax
-    s_PA_P[mask2] = s_P_P[mask2] / (2.0 * P[mask2]) * 180.0 / np.pi
+    maskP = np.logical_and(mask, P > 0.0)
+    if coeff_stokes is not None and sigma_flux is not None:
+        s_P_P[maskP] = (
+            P[maskP]
+            / I_stokes[maskP]
+            * np.sqrt(
+                np.sum(
+                    [
+                        ((coeff_stokes[1, i] * Q_stokes[maskP] + coeff_stokes[2, i] * U_stokes[maskP]) / (I_stokes[maskP] * P[maskP] ** 2) - coeff_stokes[0, i])
+                        ** 2
+                        * sigma_flux[i][maskP] ** 2
+                        for i in range(sigma_flux.shape[0])
+                    ],
+                    axis=0,
+                )[0]
+            )
+        )
+    else:
+        s_P_P[mask] = np.sqrt(2.0 / N_obs[mask])
+    s_PA_P[maskP] = s_P_P[maskP] / P[maskP] * 90.0 / np.pi
+
+    # Catch expected "OverflowWarning" as wrong pixel have an overflowing error
+    with warnings.catch_warnings(record=True) as _:
+        mask2 = P**2 >= s_P_P**2
+    debiased_P = np.zeros(I_stokes.shape)
+    debiased_P[mask2] = np.sqrt(P[mask2] ** 2 - s_P_P[mask2] ** 2)
+
+    if (debiased_P > 1.0).any():
+        print("WARNING : found {0:d} pixels for which debiased_P > 100%".format(debiased_P[debiased_P > 1.0].size))
 
     # Nan handling :
     P[np.isnan(P)] = 0.0
@@ -1605,7 +1630,7 @@ def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes):
     return P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P
 
 
-def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, SNRi_cut=None):
+def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, sigma_flux=None, SNRi_cut=None):
     """
     Use scipy.ndimage.rotate to rotate I_stokes to an angle, and a rotation
     matrix to rotate Q, U of a given angle in degrees and update header
@@ -1698,6 +1723,9 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
             new_I_stokes[i, j], new_Q_stokes[i, j], new_U_stokes[i, j] = np.dot(mrot, np.array([new_I_stokes[i, j], new_Q_stokes[i, j], new_U_stokes[i, j]])).T
             new_Stokes_cov[:, :, i, j] = np.dot(mrot, np.dot(new_Stokes_cov[:, :, i, j], mrot.T))
 
+    if sigma_flux is not None:
+        new_sigma_flux = sc_rotate(zeropad(sigma_flux, (sigma_flux.shape[0], *shape)), ang, order=1, reshape=False, cval=0.0)
+
     # Update headers to new angle
     mrot = np.array([[np.cos(-alpha), -np.sin(-alpha)], [np.sin(-alpha), np.cos(-alpha)]])
 
@@ -1751,7 +1779,10 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
     new_header_stokes["PA_int"] = (PA_diluted, "Integrated polarization angle")
     new_header_stokes["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
 
-    return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_data_mask, new_header_stokes
+    if sigma_flux is not None:
+        return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_data_mask, new_header_stokes, new_sigma_flux
+    else:
+        return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_data_mask, new_header_stokes
 
 
 def rotate_data(data_array, error_array, data_mask, headers):

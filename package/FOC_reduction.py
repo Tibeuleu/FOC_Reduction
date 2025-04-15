@@ -117,10 +117,9 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         figtype = "_".join([figtype, "not_aligned"] if figtype != "" else ["not_aligned"])
 
     #  Crop data to remove outside blank margins.
-    data_array, error_array, headers = proj_red.crop_array(
-        data_array, headers, step=5, null_val=0.0, inside=True, display=display_crop, savename=figname, plots_folder=plots_folder
+    data_array, error_array, data_mask, headers = proj_red.crop_array(
+        data_array, headers, step=5, null_val=0.0, crop=True, inside=True, display=display_crop, savename=figname, plots_folder=plots_folder
     )
-    data_mask = np.ones(data_array[0].shape, dtype=bool)
 
     #  Deconvolve data using Richardson-Lucy iterative algorithm with a gaussian PSF of given FWHM.
     if deconvolve:
@@ -217,26 +216,30 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     # FWHM of FOC have been estimated at about 0.03" across 1500-5000 Angstrom band, which is about 2 detector pixels wide
     # see Jedrzejewski, R.; Nota, A.; Hack, W. J., A Comparison Between FOC and WFPC2
     # Bibcode : 1995chst.conf...10J
-    I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes = proj_red.compute_Stokes(
+    I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, coeff_stokes, sigma_flux = proj_red.compute_Stokes(
         data_array, error_array, data_mask, headers, FWHM=smoothing_FWHM, scale=smoothing_scale, smoothing=smoothing_function, transmitcorr=transmitcorr
     )
-    I_bkg, Q_bkg, U_bkg, S_cov_bkg, header_bkg = proj_red.compute_Stokes(
+    I_bkg, Q_bkg, U_bkg, S_cov_bkg, header_bkg, coeff_stokes, sigma_flux_bkg = proj_red.compute_Stokes(
         background, background_error, np.array(True).reshape(1, 1), headers, FWHM=None, scale=smoothing_scale, smoothing=smoothing_function, transmitcorr=False
     )
 
     # Step 3:
     # Rotate images to have North up
     if rotate_North:
-        I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes = proj_red.rotate_Stokes(
-            I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, SNRi_cut=None
+        I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, sigma_flux = proj_red.rotate_Stokes(
+            I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, sigma_flux=sigma_flux, SNRi_cut=None
         )
-        I_bkg, Q_bkg, U_bkg, S_cov_bkg, data_mask_bkg, header_bkg = proj_red.rotate_Stokes(
-            I_bkg, Q_bkg, U_bkg, S_cov_bkg, np.array(True).reshape(1, 1), header_bkg, SNRi_cut=None
+        I_bkg, Q_bkg, U_bkg, S_cov_bkg, data_mask_bkg, header_bkg, sigma_flux_bkg = proj_red.rotate_Stokes(
+            I_bkg, Q_bkg, U_bkg, S_cov_bkg, np.array(True).reshape(1, 1), header_bkg, sigma_flux=sigma_flux_bkg, SNRi_cut=None
         )
 
     # Compute polarimetric parameters (polarization degree and angle).
-    P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P = proj_red.compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes)
-    P_bkg, debiased_P_bkg, s_P_bkg, s_P_P_bkg, PA_bkg, s_PA_bkg, s_PA_P_bkg = proj_red.compute_pol(I_bkg, Q_bkg, U_bkg, S_cov_bkg, header_bkg)
+    P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P = proj_red.compute_pol(
+        I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, coeff_stokes=coeff_stokes, sigma_flux=sigma_flux
+    )
+    P_bkg, debiased_P_bkg, s_P_bkg, s_P_P_bkg, PA_bkg, s_PA_bkg, s_PA_P_bkg = proj_red.compute_pol(
+        I_bkg, Q_bkg, U_bkg, S_cov_bkg, header_bkg, coeff_stokes=coeff_stokes, sigma_flux=sigma_flux_bkg
+    )
 
     # Step 4:
     # Save image to FITS.
