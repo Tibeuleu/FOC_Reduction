@@ -1549,23 +1549,36 @@ def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_s
     s_PA_P = np.ones(I_stokes.shape) * fmax
     maskP = np.logical_and(mask, P > 0.0)
     if s_IQU_stat is not None:
-        s_P_P[maskP] = (
-            P[maskP]
-            / I_stokes[maskP]
-            * np.sqrt(
-                s_IQU_stat[0, 0][maskP]
-                - 2.0 / (I_stokes[maskP] * P[maskP] ** 2) * (Q_stokes[maskP] * s_IQU_stat[0, 1][maskP] + U_stokes[maskP] * s_IQU_stat[0, 2][maskP])
-                + 1.0
-                / (I_stokes[maskP] ** 2 * P[maskP] ** 4)
-                * (
-                    Q_stokes[maskP] ** 2 * s_IQU_stat[1, 1][maskP]
-                    + U_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP] * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
+        # If IQU covariance matrix containing only statistical error is given propagate to P and PA
+        # Catch Invalid value in sqrt when diagonal terms are big
+        with warnings.catch_warnings(record=True) as _:
+            s_P_P[maskP] = (
+                P[maskP]
+                / I_stokes[maskP]
+                * np.sqrt(
+                    s_IQU_stat[0, 0][maskP]
+                    - 2.0 / (I_stokes[maskP] * P[maskP] ** 2) * (Q_stokes[maskP] * s_IQU_stat[0, 1][maskP] + U_stokes[maskP] * s_IQU_stat[0, 2][maskP])
+                    + 1.0
+                    / (I_stokes[maskP] ** 2 * P[maskP] ** 4)
+                    * (
+                        Q_stokes[maskP] ** 2 * s_IQU_stat[1, 1][maskP]
+                        + U_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP] * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
+                    )
                 )
             )
-        )
+            s_PA_P[maskP] = (
+                90.0
+                / (np.pi * I_stokes[maskP] ** 2 * P[maskP] ** 2)
+                * (
+                    Q_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP]
+                    + U_stokes[maskP] * s_IQU_stat[1, 1][maskP]
+                    - 2.0 * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
+                )
+            )
     else:
+        # Approximate Poisson error for P and PA
         s_P_P[mask] = np.sqrt(2.0 / N_obs[mask])
-    s_PA_P[maskP] = s_P_P[maskP] / P[maskP] * 90.0 / np.pi
+        s_PA_P[maskP] = s_P_P[maskP] / P[maskP] * 90.0 / np.pi
 
     # Catch expected "OverflowWarning" as wrong pixel have an overflowing error
     with warnings.catch_warnings(record=True) as _:
