@@ -1462,10 +1462,10 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
         header_stokes["PA_int"] = (PA_diluted, "Integrated polarization angle")
         header_stokes["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
 
-    return I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, coeff_stokes, sigma_flux
+    return I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_stat
 
 
-def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, coeff_stokes=None, sigma_flux=None):
+def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_stat=None):
     """
     Compute the polarization degree (in %) and angle (in deg) and their
     respective errors from given Stokes parameters.
@@ -1548,20 +1548,19 @@ def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, coeff_s
     s_P_P = np.ones(I_stokes.shape) * fmax
     s_PA_P = np.ones(I_stokes.shape) * fmax
     maskP = np.logical_and(mask, P > 0.0)
-    if coeff_stokes is not None and sigma_flux is not None:
+    if s_IQU_stat is not None:
         s_P_P[maskP] = (
             P[maskP]
             / I_stokes[maskP]
             * np.sqrt(
-                np.sum(
-                    [
-                        ((coeff_stokes[1, i] * Q_stokes[maskP] + coeff_stokes[2, i] * U_stokes[maskP]) / (I_stokes[maskP] * P[maskP] ** 2) - coeff_stokes[0, i])
-                        ** 2
-                        * sigma_flux[i][maskP] ** 2
-                        for i in range(sigma_flux.shape[0])
-                    ],
-                    axis=0,
-                )[0]
+                s_IQU_stat[0, 0][maskP]
+                - 2.0 / (I_stokes[maskP] * P[maskP] ** 2) * (Q_stokes[maskP] * s_IQU_stat[0, 1][maskP] + U_stokes[maskP] * s_IQU_stat[0, 2][maskP])
+                + 1.0
+                / (I_stokes[maskP] ** 2 * P[maskP] ** 4)
+                * (
+                    Q_stokes[maskP] ** 2 * s_IQU_stat[1, 1][maskP]
+                    + U_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP] * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
+                )
             )
         )
     else:
@@ -1588,7 +1587,7 @@ def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, coeff_s
     return P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P
 
 
-def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, sigma_flux=None, SNRi_cut=None):
+def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat=None, SNRi_cut=None):
     """
     Use scipy.ndimage.rotate to rotate I_stokes to an angle, and a rotation
     matrix to rotate Q, U of a given angle in degrees and update header
@@ -1681,8 +1680,16 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
             new_I_stokes[i, j], new_Q_stokes[i, j], new_U_stokes[i, j] = np.dot(mrot, np.array([new_I_stokes[i, j], new_Q_stokes[i, j], new_U_stokes[i, j]])).T
             new_Stokes_cov[:, :, i, j] = np.dot(mrot, np.dot(new_Stokes_cov[:, :, i, j], mrot.T))
 
-    if sigma_flux is not None:
-        new_sigma_flux = sc_rotate(zeropad(sigma_flux, (sigma_flux.shape[0], *shape)), ang, order=1, reshape=False, cval=0.0)
+    if s_IQU_stat is not None:
+        s_IQU_stat = zeropad(s_IQU_stat, [*s_IQU_stat.shape[:-2], *shape])
+        new_s_IQU_stat = np.zeros((*s_IQU_stat.shape[:-2], *shape))
+        for i in range(3):
+            for j in range(3):
+                new_s_IQU_stat[i, j] = sc_rotate(s_IQU_stat[i, j], ang, order=1, reshape=False, cval=0.0)
+            new_s_IQU_stat[i, i] = np.abs(new_s_IQU_stat[i, i])
+        for i in range(shape[0]):
+            for j in range(shape[1]):
+                new_s_IQU_stat[:, :, i, j] = np.dot(mrot, np.dot(new_s_IQU_stat[:, :, i, j], mrot.T))
 
     # Update headers to new angle
     mrot = np.array([[np.cos(-alpha), -np.sin(-alpha)], [np.sin(-alpha), np.cos(-alpha)]])
@@ -1737,8 +1744,8 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
     new_header_stokes["PA_int"] = (PA_diluted, "Integrated polarization angle")
     new_header_stokes["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
 
-    if sigma_flux is not None:
-        return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_data_mask, new_header_stokes, new_sigma_flux
+    if s_IQU_stat is not None:
+        return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_data_mask, new_header_stokes, new_s_IQU_stat
     else:
         return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_data_mask, new_header_stokes
 
