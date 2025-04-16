@@ -360,7 +360,7 @@ def polarization_map(
     if fig is None:
         ratiox = max(int(stkI.shape[1] / (stkI.shape[0])), 1)
         ratioy = max(int((stkI.shape[0]) / stkI.shape[1]), 1)
-        fig = plt.figure(figsize=(7 * ratiox, 7 * ratioy), layout="constrained")
+        fig = plt.figure(figsize=(8 * ratiox, 8 * ratioy), layout="constrained")
     if ax is None:
         ax = fig.add_subplot(111, projection=wcs)
         ax.set(aspect="equal", fc="k")  # , ylim=[-0.05 * stkI.shape[0], 1.05 * stkI.shape[0]])
@@ -435,33 +435,33 @@ def polarization_map(
         else:
             vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
             pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
-        im = ax.imshow(stkI * convert_flux * pol, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        im = ax.imshow(stkI * convert_flux * pol, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (pol < pol_err))
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         # levelsPf = np.linspace(0.0.60, 0.50, 5) * pfmax
-        levelsPf = np.array([1.73, 13.0, 33.0, 66.0]) / 100.0 * pfmax
+        levelsPf = np.array([13.0, 33.0, 66.0]) / 100.0 * pfmax
         print("Polarized flux density contour levels : ", levelsPf)
         ax.contour(stkI * convert_flux * pol, levels=levelsPf, colors="grey", linewidths=0.5)
     elif display.lower() in ["p", "pol", "pol_deg"]:
         # Display polarization degree map
         display = "p"
-        vmin, vmax = 0.0, min(pol[np.isfinite(pol)].max(), 1.0) * 100.0
-        im = ax.imshow(pol * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        vmin, vmax = 0.0, min(pol[pol > pol_err].max(), 1.0) * 100.0
+        im = ax.imshow(pol * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (pol < pol_err))
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$P$ [%]")
     elif display.lower() in ["pa", "pang", "pol_ang"]:
         # Display polarization degree map
         display = "pa"
         vmin, vmax = 0.0, 180.0
-        im = ax.imshow(princ_angle(pang), vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        im = ax.imshow(princ_angle(pang), vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (pol < pol_err))
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\theta_P$ [°]")
     elif display.lower() in ["s_p", "pol_err", "pol_deg_err"]:
         # Display polarization degree error map
         display = "s_p"
         if (SNRp > P_cut).any():
             vmin, vmax = 0.0, np.max([pol_err[SNRp > P_cut].max(), 1.0]) * 100.0
-            im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0)
+            im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0 - 0.75 * (pol < pol_err))
         else:
             vmin, vmax = 0.0, 100.0
-            im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0)
+            im = ax.imshow(pol_err * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap="inferno_r", alpha=1.0 - 0.75 * (pol < pol_err))
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\sigma_P$ [%]")
     elif display.lower() in ["s_i", "i_err"]:
         # Display intensity error map
@@ -471,39 +471,41 @@ def polarization_map(
                 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stk_cov[0, 0] > 0.0]) * convert_flux),
                 np.max(np.sqrt(stk_cov[0, 0][stk_cov[0, 0] > 0.0]) * convert_flux),
             )
-            im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap="inferno_r", alpha=1.0)
+            im = ax.imshow(
+                np.sqrt(stk_cov[0, 0]) * convert_flux, norm=LogNorm(vmin, vmax), aspect="equal", cmap="inferno_r", alpha=1.0 - 0.75 * (pol < pol_err)
+            )
         else:
-            im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+            im = ax.imshow(np.sqrt(stk_cov[0, 0]) * convert_flux, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (pol < pol_err))
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\sigma_I$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
     elif display.lower() in ["snri"]:
         # Display I_stokes signal-to-noise map
         display = "snri"
         vmin, vmax = 0.0, np.max(SNRi[np.isfinite(SNRi)])
         if vmax * 0.99 > SNRi_cut:
-            im = ax.imshow(SNRi, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+            im = ax.imshow(SNRi, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"])
             levelsSNRi = np.linspace(SNRi_cut, vmax * 0.99, 5).astype(int)
             print("SNRi contour levels : ", levelsSNRi)
             ax.contour(SNRi, levels=levelsSNRi, colors="grey", linewidths=0.5)
         else:
-            im = ax.imshow(SNRi, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+            im = ax.imshow(SNRi, aspect="equal", cmap=kwargs["cmap"])
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
     elif display.lower() in ["snr", "snrp"]:
         # Display polarization degree signal-to-noise map
         display = "snrp"
         vmin, vmax = 0.0, np.max(SNRp[np.isfinite(SNRp)])
-        if vmax * 0.99 > SNRp_cut:
-            im = ax.imshow(SNRp, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-            levelsSNRp = np.linspace(P_cut, vmax * 0.99, 5).astype(int)
+        if vmax * 0.99 > SNRp_cut + 3:
+            im = ax.imshow(SNRp, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"])
+            levelsSNRp = np.linspace(SNRp_cut, vmax * 0.99, 3).astype(int)
             print("SNRp contour levels : ", levelsSNRp)
             ax.contour(SNRp, levels=levelsSNRp, colors="grey", linewidths=0.5)
         else:
-            im = ax.imshow(SNRp, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+            im = ax.imshow(SNRp, aspect="equal", cmap=kwargs["cmap"])
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$P/\sigma_{P}$")
     elif display.lower() in ["conf", "confp"]:
         # Display polarization degree signal-to-noise map
         display = "confp"
         vmin, vmax = 0.0, 1.0
-        im = ax.imshow(confP, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+        im = ax.imshow(confP, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"])
         levelsconfp = np.array([0.500, 0.900, 0.990, 0.999])
         print("confp contour levels : ", levelsconfp)
         ax.contour(confP, levels=levelsconfp, colors="grey", linewidths=0.5)
@@ -1895,7 +1897,7 @@ class crop_map(object):
         else:
             self.ax = ax
             self.mask_alpha = 0.75
-            self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1])
+            self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1], spancoords="pixels", useblit=True)
             self.embedded = True
         self.ax.set(xlabel="Right Ascension (J2000)", ylabel="Declination (J2000)")
         self.display(self.data, self.wcs, self.map_convert, **self.kwargs)
@@ -1956,7 +1958,7 @@ class crop_map(object):
         self.display()
 
         if self.fig.canvas.manager.toolbar.mode == "":
-            self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1])
+            self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1], spancoords="pixels", useblit=True)
 
         self.RSextent = deepcopy(self.extent)
         self.RScenter = deepcopy(self.center)
@@ -2016,7 +2018,7 @@ class crop_map(object):
             self.ax.set_ylim(0, ylim)
 
             if self.fig.canvas.manager.toolbar.mode == "":
-                self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1])
+                self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1], spancoords="pixels", useblit=True)
 
         self.fig.canvas.draw_idle()
 
@@ -2028,7 +2030,7 @@ class crop_map(object):
 
     def crop(self) -> None:
         if self.fig.canvas.manager.toolbar.mode == "":
-            self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1])
+            self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1], spancoords="pixels", useblit=True)
         self.bapply.on_clicked(self.apply_crop)
         self.breset.on_clicked(self.reset_crop)
         self.fig.canvas.mpl_connect("close_event", self.on_close)
@@ -2100,7 +2102,7 @@ class crop_Stokes(crop_map):
                 self.on_close(event)
 
             if self.fig.canvas.manager.toolbar.mode == "":
-                self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1])
+                self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1], spancoords="pixels", useblit=True)
         # Update integrated values
         mask = np.logical_and(self.hdul_crop["data_mask"].data.astype(bool), self.hdul_crop[0].data > 0)
         I_diluted = self.hdul_crop["i_stokes"].data[mask].sum()
@@ -3079,7 +3081,7 @@ class pol_map(object):
             label = r"$P \cdot F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]"
         elif self.display_selection.lower() in ["pol_deg"]:
             self.data = self.P * 100.0
-            kwargs["vmin"], kwargs["vmax"] = 0.0, np.max(self.data[self.P > self.P_ERR])
+            kwargs["vmin"], kwargs["vmax"] = 0.0, min(np.max(self.data[self.P > self.P_ERR]), 100.0)
             kwargs["alpha"] = 1.0 - 0.75 * (self.P < self.P_ERR)
             label = r"$P$ [%]"
         elif self.display_selection.lower() in ["pol_ang"]:
@@ -3092,14 +3094,12 @@ class pol_map(object):
             SNRi = np.zeros(self.I.shape)
             SNRi[s_I > 0.0] = self.I[s_I > 0.0] / s_I[s_I > 0.0]
             self.data = SNRi
-            kwargs["alpha"] = 1.0 - 0.75 * (self.I < s_I)
             kwargs["vmin"], kwargs["vmax"] = 0.0, np.max(self.data[self.data > 0.0])
             label = r"$I_{Stokes}/\sigma_{I}$"
         elif self.display_selection.lower() in ["snrp"]:
             SNRp = np.zeros(self.P.shape)
             SNRp[self.P_ERR > 0.0] = self.P[self.P_ERR > 0.0] / self.P_ERR[self.P_ERR > 0.0]
             self.data = SNRp
-            kwargs["alpha"] = 1.0 - 0.75 * (self.P < self.P_ERR)
             kwargs["vmin"], kwargs["vmax"] = 0.0, np.max(self.data[self.data > 0.0])
             label = r"$P/\sigma_{P}$"
 

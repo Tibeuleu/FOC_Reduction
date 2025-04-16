@@ -1314,8 +1314,8 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
         for i in range(Stokes_cov.shape[0]):
             s_IQU_stat[i, i] = np.sum([coeff_stokes[i, k] ** 2 * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
             for j in [k for k in range(3) if k > i]:
-                s_IQU_stat[i, j] = np.sum([coeff_stokes[i, k] * coeff_stokes[j, k] * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
-                s_IQU_stat[j, i] = np.sum([coeff_stokes[i, k] * coeff_stokes[j, k] * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
+                s_IQU_stat[i, j] = np.sum([abs(coeff_stokes[i, k] * coeff_stokes[j, k]) * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
+                s_IQU_stat[j, i] = np.sum([abs(coeff_stokes[i, k] * coeff_stokes[j, k]) * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
 
         # Compute the derivative of each Stokes parameter with respect to the polarizer orientation
         dIQU_dtheta = np.zeros(Stokes_cov.shape)
@@ -1373,10 +1373,10 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
             s_IQU_axis[i, i] = np.sum([dIQU_dtheta[i, k] ** 2 * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0)
             for j in [k for k in range(3) if k > i]:
                 s_IQU_axis[i, j] = np.sum(
-                    [dIQU_dtheta[i, k] * dIQU_dtheta[j, k] * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0
+                    [abs(dIQU_dtheta[i, k] * dIQU_dtheta[j, k]) * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0
                 )
                 s_IQU_axis[j, i] = np.sum(
-                    [dIQU_dtheta[i, k] * dIQU_dtheta[j, k] * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0
+                    [abs(dIQU_dtheta[i, k] * dIQU_dtheta[j, k]) * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0
                 )
 
         # Add quadratically the uncertainty to the Stokes covariance matrix
@@ -1551,30 +1551,30 @@ def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_s
     if s_IQU_stat is not None:
         # If IQU covariance matrix containing only statistical error is given propagate to P and PA
         # Catch Invalid value in sqrt when diagonal terms are big
-        with warnings.catch_warnings(record=True) as _:
-            s_P_P[maskP] = (
-                P[maskP]
-                / I_stokes[maskP]
-                * np.sqrt(
-                    s_IQU_stat[0, 0][maskP]
-                    - 2.0 / (I_stokes[maskP] * P[maskP] ** 2) * (Q_stokes[maskP] * s_IQU_stat[0, 1][maskP] + U_stokes[maskP] * s_IQU_stat[0, 2][maskP])
-                    + 1.0
-                    / (I_stokes[maskP] ** 2 * P[maskP] ** 4)
-                    * (
-                        Q_stokes[maskP] ** 2 * s_IQU_stat[1, 1][maskP]
-                        + U_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP] * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
-                    )
-                )
-            )
-            s_PA_P[maskP] = (
-                90.0
-                / (np.pi * I_stokes[maskP] ** 2 * P[maskP] ** 2)
+        s_P_P[maskP] = (
+            P[maskP]
+            / I_stokes[maskP]
+            * np.sqrt(
+                s_IQU_stat[0, 0][maskP]
+                - 2.0 / (I_stokes[maskP] * P[maskP] ** 2) * (Q_stokes[maskP] * s_IQU_stat[0, 1][maskP] + U_stokes[maskP] * s_IQU_stat[0, 2][maskP])
+                + 1.0
+                / (I_stokes[maskP] ** 2 * P[maskP] ** 4)
                 * (
-                    Q_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP]
-                    + U_stokes[maskP] * s_IQU_stat[1, 1][maskP]
-                    - 2.0 * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
+                    Q_stokes[maskP] ** 2 * s_IQU_stat[1, 1][maskP]
+                    + U_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP]
+                    + 2.0 * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
                 )
             )
+        )
+        s_PA_P[maskP] = (
+            90.0
+            / (np.pi * I_stokes[maskP] ** 2 * P[maskP] ** 2)
+            * (
+                Q_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP]
+                + U_stokes[maskP] * s_IQU_stat[1, 1][maskP]
+                - 2.0 * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
+            )
+        )
     else:
         # Approximate Poisson error for P and PA
         s_P_P[mask] = np.sqrt(2.0 / N_obs[mask])
