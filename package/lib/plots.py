@@ -2079,7 +2079,7 @@ class crop_Stokes(crop_map):
 
             # Crop dataset
             for dataset in self.hdul_crop:
-                if dataset.header["datatype"] == "IQU_cov_matrix":
+                if dataset.header["datatype"][-10:] == "cov_matrix":
                     stokes_cov = np.zeros((3, 3, shape[1], shape[0]))
                     for i in range(3):
                         for j in range(3):
@@ -2104,16 +2104,22 @@ class crop_Stokes(crop_map):
             if self.fig.canvas.manager.toolbar.mode == "":
                 self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1], spancoords="pixels", useblit=True)
         # Update integrated values
-        mask = np.logical_and(self.hdul_crop["data_mask"].data.astype(bool), self.hdul_crop[0].data > 0)
-        I_diluted = self.hdul_crop["i_stokes"].data[mask].sum()
-        Q_diluted = self.hdul_crop["q_stokes"].data[mask].sum()
-        U_diluted = self.hdul_crop["u_stokes"].data[mask].sum()
-        I_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[0, 0][mask]))
-        Q_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[1, 1][mask]))
-        U_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[2, 2][mask]))
-        IQ_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[0, 1][mask] ** 2))
-        IU_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[0, 2][mask] ** 2))
-        QU_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[1, 2][mask] ** 2))
+        mask = np.logical_and(self.hdul_crop["DATA_MASK"].data.astype(bool), self.hdul_crop[0].data > 0)
+        I_diluted = self.hdul_crop["I_STOKES"].data[mask].sum()
+        Q_diluted = self.hdul_crop["Q_STOKES"].data[mask].sum()
+        U_diluted = self.hdul_crop["U_STOKES"].data[mask].sum()
+        I_diluted_err = np.sqrt(np.sum(self.hdul_crop["IQU_COV_MATRIX"].data[0, 0][mask]))
+        Q_diluted_err = np.sqrt(np.sum(self.hdul_crop["IQU_COV_MATRIX"].data[1, 1][mask]))
+        U_diluted_err = np.sqrt(np.sum(self.hdul_crop["IQU_COV_MATRIX"].data[2, 2][mask]))
+        IQ_diluted_err = np.sqrt(np.sum(self.hdul_crop["IQU_COV_MATRIX"].data[0, 1][mask] ** 2))
+        IU_diluted_err = np.sqrt(np.sum(self.hdul_crop["IQU_COV_MATRIX"].data[0, 2][mask] ** 2))
+        QU_diluted_err = np.sqrt(np.sum(self.hdul_crop["IQU_COV_MATRIX"].data[1, 2][mask] ** 2))
+        I_diluted_stat_err = np.sqrt(np.sum(self.hdul_crop["IQU_STAT_COV_MATRIX"].data[0, 0][mask]))
+        Q_diluted_stat_err = np.sqrt(np.sum(self.hdul_crop["IQU_STAT_COV_MATRIX"].data[1, 1][mask]))
+        U_diluted_stat_err = np.sqrt(np.sum(self.hdul_crop["IQU_STAT_COV_MATRIX"].data[2, 2][mask]))
+        IQ_diluted_stat_err = np.sqrt(np.sum(self.hdul_crop["IQU_STAT_COV_MATRIX"].data[0, 1][mask] ** 2))
+        IU_diluted_stat_err = np.sqrt(np.sum(self.hdul_crop["IQU_STAT_COV_MATRIX"].data[0, 2][mask] ** 2))
+        QU_diluted_stat_err = np.sqrt(np.sum(self.hdul_crop["IQU_STAT_COV_MATRIX"].data[1, 2][mask] ** 2))
 
         P_diluted = np.sqrt(Q_diluted**2 + U_diluted**2) / I_diluted
         P_diluted_err = (1.0 / I_diluted) * np.sqrt(
@@ -2122,6 +2128,18 @@ class crop_Stokes(crop_map):
             - 2.0 * (Q_diluted / I_diluted) * IQ_diluted_err
             - 2.0 * (U_diluted / I_diluted) * IU_diluted_err
         )
+        P_diluted_stat_err = (
+            P_diluted
+            / I_diluted
+            * np.sqrt(
+                I_diluted_stat_err
+                - 2.0 / (I_diluted * P_diluted**2) * (Q_diluted * IQ_diluted_stat_err + U_diluted * IU_diluted_stat_err)
+                + 1.0
+                / (I_diluted**2 * P_diluted**4)
+                * (Q_diluted**2 * Q_diluted_stat_err + U_diluted**2 * U_diluted_stat_err + 2.0 * Q_diluted * U_diluted * QU_diluted_stat_err)
+            )
+        )
+        debiased_P_diluted = np.sqrt(P_diluted**2 - P_diluted_stat_err**2) if P_diluted**2 > P_diluted_stat_err**2 else 0.0
 
         PA_diluted = princ_angle((90.0 / np.pi) * np.arctan2(U_diluted, Q_diluted))
         PA_diluted_err = (90.0 / (np.pi * (Q_diluted**2 + U_diluted**2))) * np.sqrt(
@@ -2131,7 +2149,7 @@ class crop_Stokes(crop_map):
         for dataset in self.hdul_crop:
             if dataset.header["FILENAME"][-4:] != "crop":
                 dataset.header["FILENAME"] += "_crop"
-            dataset.header["P_int"] = (P_diluted, "Integrated polarization degree")
+            dataset.header["P_int"] = (debiased_P_diluted, "Integrated polarization degree")
             dataset.header["sP_int"] = (np.ceil(P_diluted_err * 1000.0) / 1000.0, "Integrated polarization degree error")
             dataset.header["PA_int"] = (PA_diluted, "Integrated polarization angle")
             dataset.header["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
@@ -2962,6 +2980,10 @@ class pol_map(object):
         return self.Stokes["IQU_COV_MATRIX"].data
 
     @property
+    def IQU_stat_cov(self):
+        return self.Stokes["IQU_STAT_COV_MATRIX"].data
+
+    @property
     def P(self):
         return self.Stokes["POL_DEG_DEBIASED"].data
 
@@ -3283,27 +3305,26 @@ class pol_map(object):
             s_I = np.sqrt(self.IQU_cov[0, 0])
             I_reg = self.I.sum()
             I_reg_err = np.sqrt(np.sum(s_I**2))
-            P_reg = self.Stokes[0].header["P_int"]
+            debiased_P_reg = self.Stokes[0].header["P_int"]
             P_reg_err = self.Stokes[0].header["sP_int"]
             PA_reg = self.Stokes[0].header["PA_int"]
             PA_reg_err = self.Stokes[0].header["sPA_int"]
 
-            s_I = np.sqrt(self.IQU_cov[0, 0])
-            s_Q = np.sqrt(self.IQU_cov[1, 1])
-            s_U = np.sqrt(self.IQU_cov[2, 2])
-            s_IQ = self.IQU_cov[0, 1]
-            s_IU = self.IQU_cov[0, 2]
-            s_QU = self.IQU_cov[1, 2]
-
             I_cut = self.I[self.cut].sum()
             Q_cut = self.Q[self.cut].sum()
             U_cut = self.U[self.cut].sum()
-            I_cut_err = np.sqrt(np.sum(s_I[self.cut] ** 2))
-            Q_cut_err = np.sqrt(np.sum(s_Q[self.cut] ** 2))
-            U_cut_err = np.sqrt(np.sum(s_U[self.cut] ** 2))
-            IQ_cut_err = np.sqrt(np.sum(s_IQ[self.cut] ** 2))
-            IU_cut_err = np.sqrt(np.sum(s_IU[self.cut] ** 2))
-            QU_cut_err = np.sqrt(np.sum(s_QU[self.cut] ** 2))
+            I_cut_err = np.sqrt(np.sum(self.IQU_cov[0, 0][self.cut]))
+            Q_cut_err = np.sqrt(np.sum(self.IQU_cov[1, 1][self.cut]))
+            U_cut_err = np.sqrt(np.sum(self.IQU_cov[2, 2][self.cut]))
+            IQ_cut_err = np.sqrt(np.sum(self.IQU_cov[0, 1][self.cut] ** 2))
+            IU_cut_err = np.sqrt(np.sum(self.IQU_cov[0, 2][self.cut] ** 2))
+            QU_cut_err = np.sqrt(np.sum(self.IQU_cov[1, 2][self.cut] ** 2))
+            I_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 0][self.cut]))
+            Q_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[1, 1][self.cut]))
+            U_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[2, 2][self.cut]))
+            IQ_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 1][self.cut] ** 2))
+            IU_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 2][self.cut] ** 2))
+            QU_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[1, 2][self.cut] ** 2))
 
             with np.errstate(divide="ignore", invalid="ignore"):
                 P_cut = np.sqrt(Q_cut**2 + U_cut**2) / I_cut
@@ -3316,6 +3337,18 @@ class pol_map(object):
                     )
                     / I_cut
                 )
+                P_cut_stat_err = (
+                    P_cut
+                    / I_cut
+                    * np.sqrt(
+                        I_cut_stat_err
+                        - 2.0 / (I_cut * P_cut**2) * (Q_cut * IQ_cut_stat_err + U_cut * IU_cut_stat_err)
+                        + 1.0 / (I_cut**2 * P_cut**4) * (Q_cut**2 * Q_cut_stat_err + U_cut**2 * U_cut_stat_err + 2.0 * Q_cut * U_cut * QU_cut_stat_err)
+                    )
+                )
+                mask = P_cut**2 > P_cut_stat_err
+                debiased_P_cut = np.zeros(P_cut.shape)
+                debiased_P_cut[mask] = np.sqrt(P_cut[mask] ** 2 - P_cut_stat_err[mask] ** 2)
 
                 PA_cut = princ_angle((90.0 / np.pi) * np.arctan2(U_cut, Q_cut))
                 PA_cut_err = (90.0 / (np.pi * (Q_cut**2 + U_cut**2))) * np.sqrt(
@@ -3323,22 +3356,21 @@ class pol_map(object):
                 )
 
         else:
-            s_I = np.sqrt(self.IQU_cov[0, 0])
-            s_Q = np.sqrt(self.IQU_cov[1, 1])
-            s_U = np.sqrt(self.IQU_cov[2, 2])
-            s_IQ = self.IQU_cov[0, 1]
-            s_IU = self.IQU_cov[0, 2]
-            s_QU = self.IQU_cov[1, 2]
-
             I_reg = self.I[self.region].sum()
             Q_reg = self.Q[self.region].sum()
             U_reg = self.U[self.region].sum()
-            I_reg_err = np.sqrt(np.sum(s_I[self.region] ** 2))
-            Q_reg_err = np.sqrt(np.sum(s_Q[self.region] ** 2))
-            U_reg_err = np.sqrt(np.sum(s_U[self.region] ** 2))
-            IQ_reg_err = np.sqrt(np.sum(s_IQ[self.region] ** 2))
-            IU_reg_err = np.sqrt(np.sum(s_IU[self.region] ** 2))
-            QU_reg_err = np.sqrt(np.sum(s_QU[self.region] ** 2))
+            I_reg_err = np.sqrt(np.sum(self.IQU_cov[0, 0][self.region]))
+            Q_reg_err = np.sqrt(np.sum(self.IQU_cov[1, 1][self.region]))
+            U_reg_err = np.sqrt(np.sum(self.IQU_cov[2, 2][self.region]))
+            IQ_reg_err = np.sqrt(np.sum(self.IQU_cov[0, 1][self.region] ** 2))
+            IU_reg_err = np.sqrt(np.sum(self.IQU_cov[0, 2][self.region] ** 2))
+            QU_reg_err = np.sqrt(np.sum(self.IQU_cov[1, 2][self.region] ** 2))
+            I_reg_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 0][self.region]))
+            Q_reg_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[1, 1][self.region]))
+            U_reg_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[2, 2][self.region]))
+            IQ_reg_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 1][self.region] ** 2))
+            IU_reg_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 2][self.region] ** 2))
+            QU_reg_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[1, 2][self.region] ** 2))
 
             conf = PCconf(QN=Q_reg / I_reg, QN_ERR=Q_reg_err / I_reg, UN=U_reg / I_reg, UN_ERR=U_reg_err / I_reg)
             if 1.0 - conf > 1e-3:
@@ -3355,6 +3387,16 @@ class pol_map(object):
                     )
                     / I_reg
                 )
+                P_reg_stat_err = (
+                    P_reg
+                    / I_reg
+                    * np.sqrt(
+                        I_reg_stat_err
+                        - 2.0 / (I_reg * P_reg**2) * (Q_reg * IQ_reg_stat_err + U_reg * IU_reg_stat_err)
+                        + 1.0 / (I_reg**2 * P_reg**4) * (Q_reg**2 * Q_reg_stat_err + U_reg**2 * U_reg_stat_err + 2.0 * Q_reg * U_reg * QU_reg_stat_err)
+                    )
+                )
+                debiased_P_reg = np.sqrt(P_reg**2 - P_reg_stat_err**2) if P_reg**2 > P_reg_stat_err**2 else 0.0
 
                 PA_reg = princ_angle((90.0 / np.pi) * np.arctan2(U_reg, Q_reg))
                 PA_reg_err = (90.0 / (np.pi * (Q_reg**2 + U_reg**2))) * np.sqrt(
@@ -3365,12 +3407,18 @@ class pol_map(object):
             I_cut = self.I[new_cut].sum()
             Q_cut = self.Q[new_cut].sum()
             U_cut = self.U[new_cut].sum()
-            I_cut_err = np.sqrt(np.sum(s_I[new_cut] ** 2))
-            Q_cut_err = np.sqrt(np.sum(s_Q[new_cut] ** 2))
-            U_cut_err = np.sqrt(np.sum(s_U[new_cut] ** 2))
-            IQ_cut_err = np.sqrt(np.sum(s_IQ[new_cut] ** 2))
-            IU_cut_err = np.sqrt(np.sum(s_IU[new_cut] ** 2))
-            QU_cut_err = np.sqrt(np.sum(s_QU[new_cut] ** 2))
+            I_cut_err = np.sqrt(np.sum(self.IQU_cov[0, 0][new_cut]))
+            Q_cut_err = np.sqrt(np.sum(self.IQU_cov[1, 1][new_cut]))
+            U_cut_err = np.sqrt(np.sum(self.IQU_cov[2, 2][new_cut]))
+            IQ_cut_err = np.sqrt(np.sum(self.IQU_cov[0, 1][new_cut] ** 2))
+            IU_cut_err = np.sqrt(np.sum(self.IQU_cov[0, 2][new_cut] ** 2))
+            QU_cut_err = np.sqrt(np.sum(self.IQU_cov[1, 2][new_cut] ** 2))
+            I_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 0][new_cut]))
+            Q_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[1, 1][new_cut]))
+            U_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[2, 2][new_cut]))
+            IQ_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 1][new_cut] ** 2))
+            IU_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[0, 2][new_cut] ** 2))
+            QU_cut_stat_err = np.sqrt(np.sum(self.IQU_stat_cov[1, 2][new_cut] ** 2))
 
             with np.errstate(divide="ignore", invalid="ignore"):
                 P_cut = np.sqrt(Q_cut**2 + U_cut**2) / I_cut
@@ -3383,6 +3431,18 @@ class pol_map(object):
                     )
                     / I_cut
                 )
+                P_cut_stat_err = (
+                    P_cut
+                    / I_cut
+                    * np.sqrt(
+                        I_cut_stat_err
+                        - 2.0 / (I_cut * P_cut**2) * (Q_cut * IQ_cut_stat_err + U_cut * IU_cut_stat_err)
+                        + 1.0 / (I_cut**2 * P_cut**4) * (Q_cut**2 * Q_cut_stat_err + U_cut**2 * U_cut_stat_err + 2.0 * Q_cut * U_cut * QU_cut_stat_err)
+                    )
+                )
+                mask = P_cut**2 > P_cut_stat_err
+                debiased_P_cut = np.zeros(P_cut.shape)
+                debiased_P_cut[mask] = np.sqrt(P_cut[mask] ** 2 - P_cut_stat_err[mask] ** 2)
 
                 PA_cut = princ_angle((90.0 / np.pi) * np.arctan2(U_cut, Q_cut))
                 PA_cut_err = (90.0 / (np.pi * (Q_cut**2 + U_cut**2))) * np.sqrt(
@@ -3403,7 +3463,7 @@ class pol_map(object):
                     self.pivot_wav, sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2)
                 )
                 + "\n"
-                + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
+                + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(debiased_P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
                 + "\n"
                 + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
                 + str_conf
@@ -3415,7 +3475,7 @@ class pol_map(object):
             #         self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
             #     )
             #     + "\n"
-            #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
+            #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(debiased_P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
             #     + "\n"
             #     + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
             # )
@@ -3439,7 +3499,7 @@ class pol_map(object):
                     self.pivot_wav, sci_not(I_reg * self.map_convert, I_reg_err * self.map_convert, 2)
                 )
                 + "\n"
-                + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
+                + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(debiased_P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
                 + "\n"
                 + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
                 + str_conf
@@ -3451,7 +3511,7 @@ class pol_map(object):
             #         self.pivot_wav, sci_not(I_cut * self.map_convert, I_cut_err * self.map_convert, 2)
             #     )
             #     + "\n"
-            #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
+            #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(debiased_P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
             #     + "\n"
             #     + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
             # )

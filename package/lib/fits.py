@@ -106,7 +106,23 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
 
 
 def save_Stokes(
-    I_stokes, Q_stokes, U_stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P, header_stokes, data_mask, filename, data_folder="", return_hdul=False
+    I_stokes,
+    Q_stokes,
+    U_stokes,
+    Stokes_cov,
+    Stokes_stat_cov,
+    P,
+    debiased_P,
+    s_P,
+    s_P_P,
+    PA,
+    s_PA,
+    s_PA_P,
+    header_stokes,
+    data_mask,
+    filename,
+    data_folder="",
+    return_hdul=False,
 ):
     """
     Save computed polarimetry parameters to a single fits file,
@@ -186,11 +202,15 @@ def save_Stokes(
         s_PA_P = s_PA_P[vertex[2] : vertex[3], vertex[0] : vertex[1]]
 
         new_Stokes_cov = np.zeros((*Stokes_cov.shape[:-2], *shape[::-1]))
+        new_Stokes_stat_cov = np.zeros((*Stokes_stat_cov.shape[:-2], *shape[::-1]))
         for i in range(3):
             for j in range(3):
                 Stokes_cov[i, j][(1 - data_mask).astype(bool)] = 0.0
                 new_Stokes_cov[i, j] = Stokes_cov[i, j][vertex[2] : vertex[3], vertex[0] : vertex[1]]
+                Stokes_stat_cov[i, j][(1 - data_mask).astype(bool)] = 0.0
+                new_Stokes_stat_cov[i, j] = Stokes_stat_cov[i, j][vertex[2] : vertex[3], vertex[0] : vertex[1]]
         Stokes_cov = new_Stokes_cov
+        Stokes_stat_cov = new_Stokes_stat_cov
 
         data_mask = data_mask[vertex[2] : vertex[3], vertex[0] : vertex[1]]
     data_mask = data_mask.astype(float, copy=False)
@@ -210,6 +230,7 @@ def save_Stokes(
         [Q_stokes, "Q_stokes"],
         [U_stokes, "U_stokes"],
         [Stokes_cov, "IQU_cov_matrix"],
+        [Stokes_stat_cov, "IQU_stat_cov_matrix"],
         [P, "Pol_deg"],
         [debiased_P, "Pol_deg_debiased"],
         [s_P, "Pol_deg_err"],
@@ -221,7 +242,7 @@ def save_Stokes(
     ]:
         hdu_header = header.copy()
         hdu_header["datatype"] = name
-        if not name == "IQU_cov_matrix":
+        if not name[-10:] == "cov_matrix":
             data[(1 - data_mask).astype(bool)] = 0.0
         hdu = fits.ImageHDU(data=data, header=hdu_header)
         hdu.name = name

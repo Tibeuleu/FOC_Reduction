@@ -40,13 +40,13 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     display_crop = False
 
     # Background estimation
-    error_sub_type = "scott"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
-    subtract_error = 0.50
+    error_sub_type = "freedman-diaconis"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
+    subtract_error = 1.33
     display_bkg = True
 
     # Data binning
-    pxsize = 4
-    pxscale = "px"  # pixel, arcsec or full
+    pxsize = 0.05
+    pxscale = "arcsec"  # pixel, arcsec or full
     rebin_operation = "sum"  # sum or average
 
     # Alignement
@@ -59,8 +59,8 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Smoothing
     smoothing_function = "combine"  # gaussian_after, weighted_gaussian_after, gaussian, weighted_gaussian or combine
-    smoothing_FWHM = 1.5  # If None, no smoothing is done
-    smoothing_scale = "px"  # pixel or arcsec
+    smoothing_FWHM = 0.075  # If None, no smoothing is done
+    smoothing_scale = "arcsec"  # pixel or arcsec
 
     # Rotation
     rotate_North = True
@@ -216,28 +216,26 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     # FWHM of FOC have been estimated at about 0.03" across 1500-5000 Angstrom band, which is about 2 detector pixels wide
     # see Jedrzejewski, R.; Nota, A.; Hack, W. J., A Comparison Between FOC and WFPC2
     # Bibcode : 1995chst.conf...10J
-    I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_stat = proj_red.compute_Stokes(
+    I_stokes, Q_stokes, U_stokes, Stokes_cov, Stokes_stat_cov, header_stokes = proj_red.compute_Stokes(
         data_array, error_array, data_mask, headers, FWHM=smoothing_FWHM, scale=smoothing_scale, smoothing=smoothing_function, transmitcorr=transmitcorr
     )
-    I_bkg, Q_bkg, U_bkg, S_cov_bkg, header_bkg, s_IQU_stat_bkg = proj_red.compute_Stokes(
+    I_bkg, Q_bkg, U_bkg, S_cov_bkg, S_stat_cov_bkg, header_bkg = proj_red.compute_Stokes(
         background, background_error, np.array(True).reshape(1, 1), headers, FWHM=None, scale=smoothing_scale, smoothing=smoothing_function, transmitcorr=False
     )
 
     # Step 3:
     # Rotate images to have North up
     if rotate_North:
-        I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat = proj_red.rotate_Stokes(
-            I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat=s_IQU_stat, SNRi_cut=None
+        I_stokes, Q_stokes, U_stokes, Stokes_cov, Stokes_stat_cov, data_mask, header_stokes = proj_red.rotate_Stokes(
+            I_stokes, Q_stokes, U_stokes, Stokes_cov, Stokes_stat_cov, data_mask, header_stokes, SNRi_cut=None
         )
-        I_bkg, Q_bkg, U_bkg, S_cov_bkg, data_mask_bkg, header_bkg, s_IQU_stat_bkg = proj_red.rotate_Stokes(
-            I_bkg, Q_bkg, U_bkg, S_cov_bkg, np.array(True).reshape(1, 1), header_bkg, s_IQU_stat=s_IQU_stat_bkg, SNRi_cut=None
+        I_bkg, Q_bkg, U_bkg, S_cov_bkg, S_stat_cov_bkg, data_mask_bkg, header_bkg = proj_red.rotate_Stokes(
+            I_bkg, Q_bkg, U_bkg, S_cov_bkg, S_stat_cov_bkg, np.array(True).reshape(1, 1), header_bkg, SNRi_cut=None
         )
 
     # Compute polarimetric parameters (polarization degree and angle).
-    P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P = proj_red.compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_stat=s_IQU_stat)
-    P_bkg, debiased_P_bkg, s_P_bkg, s_P_P_bkg, PA_bkg, s_PA_bkg, s_PA_P_bkg = proj_red.compute_pol(
-        I_bkg, Q_bkg, U_bkg, S_cov_bkg, header_bkg, s_IQU_stat=s_IQU_stat_bkg
-    )
+    P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P = proj_red.compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, Stokes_stat_cov, header_stokes)
+    P_bkg, debiased_P_bkg, s_P_bkg, s_P_P_bkg, PA_bkg, s_PA_bkg, s_PA_P_bkg = proj_red.compute_pol(I_bkg, Q_bkg, U_bkg, S_cov_bkg, S_stat_cov_bkg, header_bkg)
 
     # Step 4:
     # Save image to FITS.
@@ -247,6 +245,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
         Q_stokes,
         U_stokes,
         Stokes_cov,
+        Stokes_stat_cov,
         P,
         debiased_P,
         s_P,

@@ -1310,12 +1310,12 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
 
         # Statistical error: Poisson noise is assumed
         sigma_flux = np.array([np.sqrt(flux / head["exptime"]) for flux, head in zip(pol_flux, pol_headers)])
-        s_IQU_stat = np.zeros(Stokes_cov.shape)
+        Stokes_stat_cov = np.zeros(Stokes_cov.shape)
         for i in range(Stokes_cov.shape[0]):
-            s_IQU_stat[i, i] = np.sum([coeff_stokes[i, k] ** 2 * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
+            Stokes_stat_cov[i, i] = np.sum([coeff_stokes[i, k] ** 2 * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
             for j in [k for k in range(3) if k > i]:
-                s_IQU_stat[i, j] = np.sum([abs(coeff_stokes[i, k] * coeff_stokes[j, k]) * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
-                s_IQU_stat[j, i] = np.sum([abs(coeff_stokes[i, k] * coeff_stokes[j, k]) * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
+                Stokes_stat_cov[i, j] = np.sum([abs(coeff_stokes[i, k] * coeff_stokes[j, k]) * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
+                Stokes_stat_cov[j, i] = np.sum([abs(coeff_stokes[i, k] * coeff_stokes[j, k]) * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
 
         # Compute the derivative of each Stokes parameter with respect to the polarizer orientation
         dIQU_dtheta = np.zeros(Stokes_cov.shape)
@@ -1368,19 +1368,19 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
             )
 
         # Compute the uncertainty associated with the polarizers' orientation (see Kishimoto 1999)
-        s_IQU_axis = np.zeros(Stokes_cov.shape)
+        Stokes_axis_cov = np.zeros(Stokes_cov.shape)
         for i in range(Stokes_cov.shape[0]):
-            s_IQU_axis[i, i] = np.sum([dIQU_dtheta[i, k] ** 2 * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0)
+            Stokes_axis_cov[i, i] = np.sum([dIQU_dtheta[i, k] ** 2 * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0)
             for j in [k for k in range(3) if k > i]:
-                s_IQU_axis[i, j] = np.sum(
+                Stokes_axis_cov[i, j] = np.sum(
                     [abs(dIQU_dtheta[i, k] * dIQU_dtheta[j, k]) * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0
                 )
-                s_IQU_axis[j, i] = np.sum(
+                Stokes_axis_cov[j, i] = np.sum(
                     [abs(dIQU_dtheta[i, k] * dIQU_dtheta[j, k]) * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0
                 )
 
         # Add quadratically the uncertainty to the Stokes covariance matrix
-        Stokes_cov += s_IQU_axis + s_IQU_stat
+        Stokes_cov += Stokes_axis_cov + Stokes_stat_cov
 
         # Save values to single header
         header_stokes = pol_headers[0]
@@ -1414,8 +1414,8 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
         for i in range(3):
             Stokes_cov[i, i] = np.sum([exp**2 * cov for exp, cov in zip(all_exp, all_Stokes_cov[:, i, i])], axis=0) / all_exp.sum() ** 2
             for j in [x for x in range(3) if x != i]:
-                Stokes_cov[i, j] = np.sqrt(np.sum([exp**2 * cov**2 for exp, cov in zip(all_exp, all_Stokes_cov[:, i, j])], axis=0) / all_exp.sum() ** 2)
-                Stokes_cov[j, i] = np.sqrt(np.sum([exp**2 * cov**2 for exp, cov in zip(all_exp, all_Stokes_cov[:, j, i])], axis=0) / all_exp.sum() ** 2)
+                Stokes_cov[i, j] = np.sum([exp**2 * cov**2 for exp, cov in zip(all_exp, all_Stokes_cov[:, i, j])], axis=0) / all_exp.sum() ** 2
+                Stokes_cov[j, i] = np.sum([exp**2 * cov**2 for exp, cov in zip(all_exp, all_Stokes_cov[:, j, i])], axis=0) / all_exp.sum() ** 2
 
         # Save values to single header
         header_stokes = all_header_stokes[0]
@@ -1430,6 +1430,7 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
     Q_stokes[np.isnan(Q_stokes)] = 0.0
     U_stokes[np.isnan(U_stokes)] = 0.0
     Stokes_cov[np.isnan(Stokes_cov)] = fmax
+    Stokes_stat_cov[np.isnan(Stokes_cov)] = fmax
 
     if integrate:
         # Compute integrated values for P, PA before any rotation
@@ -1443,6 +1444,12 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
         IQ_diluted_err = np.sqrt(np.sum(Stokes_cov[0, 1][mask] ** 2))
         IU_diluted_err = np.sqrt(np.sum(Stokes_cov[0, 2][mask] ** 2))
         QU_diluted_err = np.sqrt(np.sum(Stokes_cov[1, 2][mask] ** 2))
+        I_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[0, 0][mask]))
+        Q_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[1, 1][mask]))
+        U_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[2, 2][mask]))
+        IQ_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[0, 1][mask] ** 2))
+        IU_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[0, 2][mask] ** 2))
+        QU_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[1, 2][mask] ** 2))
 
         P_diluted = np.sqrt(Q_diluted**2 + U_diluted**2) / I_diluted
         P_diluted_err = np.sqrt(
@@ -1451,21 +1458,33 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
             - 2.0 * (Q_diluted / I_diluted) * IQ_diluted_err
             - 2.0 * (U_diluted / I_diluted) * IU_diluted_err
         )
+        P_diluted_stat_err = (
+            P_diluted
+            / I_diluted
+            * np.sqrt(
+                I_diluted_stat_err
+                - 2.0 / (I_diluted * P_diluted**2) * (Q_diluted * IQ_diluted_stat_err + U_diluted * IU_diluted_stat_err)
+                + 1.0
+                / (I_diluted**2 * P_diluted**4)
+                * (Q_diluted**2 * Q_diluted_stat_err + U_diluted**2 * U_diluted_stat_err + 2.0 * Q_diluted * U_diluted * QU_diluted_stat_err)
+            )
+        )
+        debiased_P_diluted = np.sqrt(P_diluted**2 - P_diluted_stat_err**2) if P_diluted**2 > P_diluted_stat_err**2 else 0.0
 
         PA_diluted = princ_angle((90.0 / np.pi) * np.arctan2(U_diluted, Q_diluted))
         PA_diluted_err = (90.0 / (np.pi * (Q_diluted**2 + U_diluted**2))) * np.sqrt(
             U_diluted**2 * Q_diluted_err**2 + Q_diluted**2 * U_diluted_err**2 - 2.0 * Q_diluted * U_diluted * QU_diluted_err
         )
 
-        header_stokes["P_int"] = (P_diluted, "Integrated polarization degree")
+        header_stokes["P_int"] = (debiased_P_diluted, "Integrated polarization degree")
         header_stokes["sP_int"] = (np.ceil(P_diluted_err * 1000.0) / 1000.0, "Integrated polarization degree error")
         header_stokes["PA_int"] = (PA_diluted, "Integrated polarization angle")
         header_stokes["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
 
-    return I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_stat
+    return I_stokes, Q_stokes, U_stokes, Stokes_cov, Stokes_stat_cov, header_stokes
 
 
-def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_stat=None):
+def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, Stokes_stat_cov, header_stokes):
     """
     Compute the polarization degree (in %) and angle (in deg) and their
     respective errors from given Stokes parameters.
@@ -1540,45 +1559,34 @@ def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_s
     s_P[np.isnan(s_P)] = fmax
     s_PA[np.isnan(s_PA)] = fmax
 
-    # Compute the total exposure time so that
-    # I_stokes*exp_tot = N_tot the total number of events
-    N_obs = I_stokes * float(header_stokes["exptime"])
-
     # Errors on P, PA supposing Poisson noise
     s_P_P = np.ones(I_stokes.shape) * fmax
     s_PA_P = np.ones(I_stokes.shape) * fmax
     maskP = np.logical_and(mask, P > 0.0)
-    if s_IQU_stat is not None:
-        # If IQU covariance matrix containing only statistical error is given propagate to P and PA
-        # Catch Invalid value in sqrt when diagonal terms are big
-        s_P_P[maskP] = (
-            P[maskP]
-            / I_stokes[maskP]
-            * np.sqrt(
-                s_IQU_stat[0, 0][maskP]
-                - 2.0 / (I_stokes[maskP] * P[maskP] ** 2) * (Q_stokes[maskP] * s_IQU_stat[0, 1][maskP] + U_stokes[maskP] * s_IQU_stat[0, 2][maskP])
-                + 1.0
-                / (I_stokes[maskP] ** 2 * P[maskP] ** 4)
-                * (
-                    Q_stokes[maskP] ** 2 * s_IQU_stat[1, 1][maskP]
-                    + U_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP]
-                    + 2.0 * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
-                )
-            )
-        )
-        s_PA_P[maskP] = (
-            90.0
-            / (np.pi * I_stokes[maskP] ** 2 * P[maskP] ** 2)
+    s_P_P[maskP] = (
+        P[maskP]
+        / I_stokes[maskP]
+        * np.sqrt(
+            Stokes_stat_cov[0, 0][maskP]
+            - 2.0 / (I_stokes[maskP] * P[maskP] ** 2) * (Q_stokes[maskP] * Stokes_stat_cov[0, 1][maskP] + U_stokes[maskP] * Stokes_stat_cov[0, 2][maskP])
+            + 1.0
+            / (I_stokes[maskP] ** 2 * P[maskP] ** 4)
             * (
-                Q_stokes[maskP] ** 2 * s_IQU_stat[2, 2][maskP]
-                + U_stokes[maskP] * s_IQU_stat[1, 1][maskP]
-                - 2.0 * Q_stokes[maskP] * U_stokes[maskP] * s_IQU_stat[1, 2][maskP]
+                Q_stokes[maskP] ** 2 * Stokes_stat_cov[1, 1][maskP]
+                + U_stokes[maskP] ** 2 * Stokes_stat_cov[2, 2][maskP]
+                + 2.0 * Q_stokes[maskP] * U_stokes[maskP] * Stokes_stat_cov[1, 2][maskP]
             )
         )
-    else:
-        # Approximate Poisson error for P and PA
-        s_P_P[mask] = np.sqrt(2.0 / N_obs[mask])
-        s_PA_P[maskP] = s_P_P[maskP] / P[maskP] * 90.0 / np.pi
+    )
+    s_PA_P[maskP] = (
+        90.0
+        / (np.pi * I_stokes[maskP] ** 2 * P[maskP] ** 2)
+        * (
+            Q_stokes[maskP] ** 2 * Stokes_stat_cov[2, 2][maskP]
+            + U_stokes[maskP] * Stokes_stat_cov[1, 1][maskP]
+            - 2.0 * Q_stokes[maskP] * U_stokes[maskP] * Stokes_stat_cov[1, 2][maskP]
+        )
+    )
 
     # Catch expected "OverflowWarning" as wrong pixel have an overflowing error
     with warnings.catch_warnings(record=True) as _:
@@ -1600,7 +1608,7 @@ def compute_pol(I_stokes, Q_stokes, U_stokes, Stokes_cov, header_stokes, s_IQU_s
     return P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P
 
 
-def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat=None, SNRi_cut=None):
+def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, Stokes_stat_cov, data_mask, header_stokes, SNRi_cut=None):
     """
     Use scipy.ndimage.rotate to rotate I_stokes to an angle, and a rotation
     matrix to rotate Q, U of a given angle in degrees and update header
@@ -1617,7 +1625,11 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
         Image (2D floats) containing the Stokes parameters accounting for
         +45/-45deg linear polarization intensity
     Stokes_cov : numpy.ndarray
-        Covariance matrix of the Stokes parameters I, Q, U.
+        Covariance matrix containing all uncertainties of the Stokes
+        parameters I, Q, U.
+    Stokes_stat_cov : numpy.ndarray
+        Covariance matrix containing statistical uncertainty of the Stokes
+        parameters I, Q, U.
     data_mask : numpy.ndarray
         2D boolean array delimiting the data to work on.
     header_stokes : astropy.fits.header.Header
@@ -1639,6 +1651,8 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
         accounting for +45/-45deg linear polarization intensity.
     new_Stokes_cov : numpy.ndarray
         Updated covariance matrix of the Stokes parameters I, Q, U.
+    new_Stokes_stat_cov : numpy.ndarray
+        Updated statistical covariance matrix of the Stokes parameters I, Q, U.
     new_header_stokes : astropy.fits.header.Header
         Updated Header file associated with the Stokes fluxes accounting
         for the new orientation angle.
@@ -1670,11 +1684,9 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
     Q_stokes = zeropad(Q_stokes, shape)
     U_stokes = zeropad(U_stokes, shape)
     data_mask = zeropad(data_mask, shape)
-    Stokes_cov = zeropad(Stokes_cov, [*Stokes_cov.shape[:-2], *shape])
     new_I_stokes = np.zeros(shape)
     new_Q_stokes = np.zeros(shape)
     new_U_stokes = np.zeros(shape)
-    new_Stokes_cov = np.zeros((*Stokes_cov.shape[:-2], *shape))
 
     # Rotate original images using scipy.ndimage.rotate
     new_I_stokes = sc_rotate(I_stokes, ang, order=1, reshape=False, cval=0.0)
@@ -1683,6 +1695,10 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
     new_data_mask = sc_rotate(data_mask.astype(float) * 10.0, ang, order=1, reshape=False, cval=0.0)
     new_data_mask[new_data_mask < 1.0] = 0.0
     new_data_mask = new_data_mask.astype(bool)
+
+    # Rotate covariance matrix
+    Stokes_cov = zeropad(Stokes_cov, [*Stokes_cov.shape[:-2], *shape])
+    new_Stokes_cov = np.zeros((*Stokes_cov.shape[:-2], *shape))
     for i in range(3):
         for j in range(3):
             new_Stokes_cov[i, j] = sc_rotate(Stokes_cov[i, j], ang, order=1, reshape=False, cval=0.0)
@@ -1693,16 +1709,16 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
             new_I_stokes[i, j], new_Q_stokes[i, j], new_U_stokes[i, j] = np.dot(mrot, np.array([new_I_stokes[i, j], new_Q_stokes[i, j], new_U_stokes[i, j]])).T
             new_Stokes_cov[:, :, i, j] = np.dot(mrot, np.dot(new_Stokes_cov[:, :, i, j], mrot.T))
 
-    if s_IQU_stat is not None:
-        s_IQU_stat = zeropad(s_IQU_stat, [*s_IQU_stat.shape[:-2], *shape])
-        new_s_IQU_stat = np.zeros((*s_IQU_stat.shape[:-2], *shape))
-        for i in range(3):
-            for j in range(3):
-                new_s_IQU_stat[i, j] = sc_rotate(s_IQU_stat[i, j], ang, order=1, reshape=False, cval=0.0)
-            new_s_IQU_stat[i, i] = np.abs(new_s_IQU_stat[i, i])
-        for i in range(shape[0]):
-            for j in range(shape[1]):
-                new_s_IQU_stat[:, :, i, j] = np.dot(mrot, np.dot(new_s_IQU_stat[:, :, i, j], mrot.T))
+    # Rotate statistical covariance matrix
+    Stokes_stat_cov = zeropad(Stokes_stat_cov, [*Stokes_stat_cov.shape[:-2], *shape])
+    new_Stokes_stat_cov = np.zeros((*Stokes_stat_cov.shape[:-2], *shape))
+    for i in range(3):
+        for j in range(3):
+            new_Stokes_stat_cov[i, j] = sc_rotate(Stokes_stat_cov[i, j], ang, order=1, reshape=False, cval=0.0)
+        new_Stokes_stat_cov[i, i] = np.abs(new_Stokes_stat_cov[i, i])
+    for i in range(shape[0]):
+        for j in range(shape[1]):
+            new_Stokes_stat_cov[:, :, i, j] = np.dot(mrot, np.dot(new_Stokes_stat_cov[:, :, i, j], mrot.T))
 
     # Update headers to new angle
     mrot = np.array([[np.cos(-alpha), -np.sin(-alpha)], [np.sin(-alpha), np.cos(-alpha)]])
@@ -1732,35 +1748,50 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, data_mask, header_st
     I_diluted = new_I_stokes[mask].sum()
     Q_diluted = new_Q_stokes[mask].sum()
     U_diluted = new_U_stokes[mask].sum()
-    I_diluted_err = np.sqrt(np.sum(new_Stokes_cov[0, 0][mask]))
-    Q_diluted_err = np.sqrt(np.sum(new_Stokes_cov[1, 1][mask]))
-    U_diluted_err = np.sqrt(np.sum(new_Stokes_cov[2, 2][mask]))
-    IQ_diluted_err = np.sqrt(np.sum(new_Stokes_cov[0, 1][mask] ** 2))
-    IU_diluted_err = np.sqrt(np.sum(new_Stokes_cov[0, 2][mask] ** 2))
-    QU_diluted_err = np.sqrt(np.sum(new_Stokes_cov[1, 2][mask] ** 2))
+    I_diluted_err = np.sqrt(np.sum(Stokes_cov[0, 0][mask]))
+    Q_diluted_err = np.sqrt(np.sum(Stokes_cov[1, 1][mask]))
+    U_diluted_err = np.sqrt(np.sum(Stokes_cov[2, 2][mask]))
+    IQ_diluted_err = np.sqrt(np.sum(Stokes_cov[0, 1][mask] ** 2))
+    IU_diluted_err = np.sqrt(np.sum(Stokes_cov[0, 2][mask] ** 2))
+    QU_diluted_err = np.sqrt(np.sum(Stokes_cov[1, 2][mask] ** 2))
+    I_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[0, 0][mask]))
+    Q_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[1, 1][mask]))
+    U_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[2, 2][mask]))
+    IQ_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[0, 1][mask] ** 2))
+    IU_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[0, 2][mask] ** 2))
+    QU_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[1, 2][mask] ** 2))
 
     P_diluted = np.sqrt(Q_diluted**2 + U_diluted**2) / I_diluted
-    P_diluted_err = (1.0 / I_diluted) * np.sqrt(
+    P_diluted_err = np.sqrt(
         (Q_diluted**2 * Q_diluted_err**2 + U_diluted**2 * U_diluted_err**2 + 2.0 * Q_diluted * U_diluted * QU_diluted_err) / (Q_diluted**2 + U_diluted**2)
         + ((Q_diluted / I_diluted) ** 2 + (U_diluted / I_diluted) ** 2) * I_diluted_err**2
         - 2.0 * (Q_diluted / I_diluted) * IQ_diluted_err
         - 2.0 * (U_diluted / I_diluted) * IU_diluted_err
     )
+    P_diluted_stat_err = (
+        P_diluted
+        / I_diluted
+        * np.sqrt(
+            I_diluted_stat_err
+            - 2.0 / (I_diluted * P_diluted**2) * (Q_diluted * IQ_diluted_stat_err + U_diluted * IU_diluted_stat_err)
+            + 1.0
+            / (I_diluted**2 * P_diluted**4)
+            * (Q_diluted**2 * Q_diluted_stat_err + U_diluted**2 * U_diluted_stat_err + 2.0 * Q_diluted * U_diluted * QU_diluted_stat_err)
+        )
+    )
+    debiased_P_diluted = np.sqrt(P_diluted**2 - P_diluted_stat_err**2) if P_diluted**2 > P_diluted_stat_err**2 else 0.0
 
     PA_diluted = princ_angle((90.0 / np.pi) * np.arctan2(U_diluted, Q_diluted))
     PA_diluted_err = (90.0 / (np.pi * (Q_diluted**2 + U_diluted**2))) * np.sqrt(
         U_diluted**2 * Q_diluted_err**2 + Q_diluted**2 * U_diluted_err**2 - 2.0 * Q_diluted * U_diluted * QU_diluted_err
     )
 
-    new_header_stokes["P_int"] = (P_diluted, "Integrated polarization degree")
+    new_header_stokes["P_int"] = (debiased_P_diluted, "Integrated polarization degree")
     new_header_stokes["sP_int"] = (np.ceil(P_diluted_err * 1000.0) / 1000.0, "Integrated polarization degree error")
     new_header_stokes["PA_int"] = (PA_diluted, "Integrated polarization angle")
     new_header_stokes["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
 
-    if s_IQU_stat is not None:
-        return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_data_mask, new_header_stokes, new_s_IQU_stat
-    else:
-        return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_data_mask, new_header_stokes
+    return new_I_stokes, new_Q_stokes, new_U_stokes, new_Stokes_cov, new_Stokes_stat_cov, new_data_mask, new_header_stokes
 
 
 def rotate_data(data_array, error_array, data_mask, headers):

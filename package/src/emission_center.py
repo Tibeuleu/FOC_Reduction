@@ -43,7 +43,9 @@ def main(infile, P_cut=0.99, target=None, display="pf", output_dir=None):
     if target is None:
         target = Stokes[0].header["TARGNAME"]
 
-    fig = figure(figsize=(8, 8.5), layout="constrained")
+    ratiox = max(int(stkI.shape[1] / (stkI.shape[0])), 1)
+    ratioy = max(int((stkI.shape[0]) / stkI.shape[1]), 1)
+    fig = figure(figsize=(8 * ratiox, 8 * ratioy), layout="constrained")
     fig, ax = polarization_map(Stokes, P_cut=P_cut, step_vec=1, scale_vec=5, display=display, fig=fig, width=0.33, linewidth=0.5)
 
     ax.plot(*Stokescenter, marker="+", color="k", lw=3)
