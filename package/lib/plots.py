@@ -481,9 +481,9 @@ def polarization_map(
         # Display I_stokes signal-to-noise map
         display = "snri"
         vmin, vmax = 0.0, np.max(SNRi[np.isfinite(SNRi)])
-        if vmax * 0.99 > SNRi_cut:
+        if vmax * 0.99 > SNRi_cut + 3:
             im = ax.imshow(SNRi, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"])
-            levelsSNRi = np.linspace(SNRi_cut, vmax * 0.99, 5).astype(int)
+            levelsSNRi = np.linspace(SNRi_cut, vmax * 0.99, 3).astype(int)
             print("SNRi contour levels : ", levelsSNRi)
             ax.contour(SNRi, levels=levelsSNRi, colors="grey", linewidths=0.5)
         else:
@@ -3346,9 +3346,7 @@ class pol_map(object):
                         + 1.0 / (I_cut**2 * P_cut**4) * (Q_cut**2 * Q_cut_stat_err + U_cut**2 * U_cut_stat_err + 2.0 * Q_cut * U_cut * QU_cut_stat_err)
                     )
                 )
-                mask = P_cut**2 > P_cut_stat_err
-                debiased_P_cut = np.zeros(P_cut.shape)
-                debiased_P_cut[mask] = np.sqrt(P_cut[mask] ** 2 - P_cut_stat_err[mask] ** 2)
+                debiased_P_cut = np.sqrt(P_cut**2 - P_cut_stat_err**2) if P_cut**2 > P_cut_stat_err**2 else 0.0
 
                 PA_cut = princ_angle((90.0 / np.pi) * np.arctan2(U_cut, Q_cut))
                 PA_cut_err = (90.0 / (np.pi * (Q_cut**2 + U_cut**2))) * np.sqrt(
@@ -3440,9 +3438,7 @@ class pol_map(object):
                         + 1.0 / (I_cut**2 * P_cut**4) * (Q_cut**2 * Q_cut_stat_err + U_cut**2 * U_cut_stat_err + 2.0 * Q_cut * U_cut * QU_cut_stat_err)
                     )
                 )
-                mask = P_cut**2 > P_cut_stat_err
-                debiased_P_cut = np.zeros(P_cut.shape)
-                debiased_P_cut[mask] = np.sqrt(P_cut[mask] ** 2 - P_cut_stat_err[mask] ** 2)
+                debiased_P_cut = np.sqrt(P_cut**2 - P_cut_stat_err**2) if P_cut**2 > P_cut_stat_err**2 else 0.0
 
                 PA_cut = princ_angle((90.0 / np.pi) * np.arctan2(U_cut, Q_cut))
                 PA_cut_err = (90.0 / (np.pi * (Q_cut**2 + U_cut**2))) * np.sqrt(
