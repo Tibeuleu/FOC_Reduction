@@ -1380,7 +1380,11 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
                 )
 
         # Add quadratically the uncertainty to the Stokes covariance matrix
-        Stokes_cov += Stokes_axis_cov + Stokes_stat_cov
+        for i in range(Stokes_cov.shape[0]):
+            Stokes_cov[i, i] += Stokes_axis_cov[i, i] + Stokes_stat_cov[i, i]
+            for j in [k for k in range(Stokes_cov.shape[0]) if k > i]:
+                Stokes_cov[i, j] = np.sqrt(Stokes_cov[i, j] ** 2 + Stokes_axis_cov[i, j] ** 2 + Stokes_stat_cov[i, j] ** 2)
+                Stokes_cov[j, i] = np.sqrt(Stokes_cov[j, i] ** 2 + Stokes_axis_cov[j, i] ** 2 + Stokes_stat_cov[j, i] ** 2)
 
         # Save values to single header
         header_stokes = pol_headers[0]
@@ -1452,7 +1456,7 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
         QU_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[1, 2][mask] ** 2))
 
         P_diluted = np.sqrt(Q_diluted**2 + U_diluted**2) / I_diluted
-        P_diluted_err = np.sqrt(
+        P_diluted_err = (1.0 / I_diluted) * np.sqrt(
             (Q_diluted**2 * Q_diluted_err**2 + U_diluted**2 * U_diluted_err**2 + 2.0 * Q_diluted * U_diluted * QU_diluted_err) / (Q_diluted**2 + U_diluted**2)
             + ((Q_diluted / I_diluted) ** 2 + (U_diluted / I_diluted) ** 2) * I_diluted_err**2
             - 2.0 * (Q_diluted / I_diluted) * IQ_diluted_err
@@ -1762,7 +1766,7 @@ def rotate_Stokes(I_stokes, Q_stokes, U_stokes, Stokes_cov, Stokes_stat_cov, dat
     QU_diluted_stat_err = np.sqrt(np.sum(Stokes_stat_cov[1, 2][mask] ** 2))
 
     P_diluted = np.sqrt(Q_diluted**2 + U_diluted**2) / I_diluted
-    P_diluted_err = np.sqrt(
+    P_diluted_err = (1.0 / I_diluted) * np.sqrt(
         (Q_diluted**2 * Q_diluted_err**2 + U_diluted**2 * U_diluted_err**2 + 2.0 * Q_diluted * U_diluted * QU_diluted_err) / (Q_diluted**2 + U_diluted**2)
         + ((Q_diluted / I_diluted) ** 2 + (U_diluted / I_diluted) ** 2) * I_diluted_err**2
         - 2.0 * (Q_diluted / I_diluted) * IQ_diluted_err
