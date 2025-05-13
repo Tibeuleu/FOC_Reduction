@@ -93,8 +93,10 @@ def display_bkg(data, background, std_bkg, headers, histograms=None, binning=Non
                     max(xmax, np.max(np.array(bins)[np.array(hist) > 5e1]) * convert_flux[0]),
                 )
             if coeff is not None:
-                # ax_h.plot(bins*convert_flux[i], gausspol(bins, *coeff[i]), '--', color="C{0:d}".format(i), alpha=0.8)
-                ax_h.plot(bins * convert_flux[i], gauss(bins, *coeff[i]), "--", color="C{0:d}".format(i), alpha=0.8)
+                if len(coeff[i]) == 7:
+                    ax_h.plot(bins * convert_flux[i], gausspol(bins, *coeff[i]), "--", color="C{0:d}".format(i), alpha=0.8)
+                elif len(coeff[i]) == 3:
+                    ax_h.plot(bins * convert_flux[i], gauss(bins, *coeff[i]), "--", color="C{0:d}".format(i), alpha=0.8)
         ax_h.set_xscale("log")
         ax_h.set_yscale("log")
         ax_h.set_ylim([5e1, np.max([hist.max() for hist in histograms])])
@@ -363,10 +365,10 @@ def bkg_hist(data, error, mask, headers, sub_type=None, subtract_error=True, dis
         # Fit a gaussian to the log-intensity histogram
         bins_stdev = binning[-1][hist > hist.max() / 2.0]
         stdev = bins_stdev[-1] - bins_stdev[0]
-        # p0 = [hist.max(), binning[-1][np.argmax(hist)], stdev, 1e-3, 1e-3, 1e-3, 1e-3]
-        p0 = [hist.max(), binning[-1][np.argmax(hist)], stdev]
-        # popt, pcov = curve_fit(gausspol, binning[-1], hist, p0=p0)
-        popt, pcov = curve_fit(gauss, binning[-1], hist, p0=p0)
+        p0 = [hist.max(), binning[-1][np.argmax(hist)], stdev, 1e-3, 1e-3, 1e-3, 1e-3]
+        popt, pcov = curve_fit(gausspol, binning[-1], hist, p0=p0)
+        # p0 = [hist.max(), binning[-1][np.argmax(hist)], stdev]
+        # popt, pcov = curve_fit(gauss, binning[-1], hist, p0=p0)
         coeff.append(popt)
         bkg = popt[1] + np.abs(popt[2]) * subtract_error
 
