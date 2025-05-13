@@ -3084,15 +3084,9 @@ class pol_map(object):
             label = r"$P \cdot F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]"
         elif self.display_selection.lower() in ["pol_deg"]:
             self.data = self.P * 100.0
-<<<<<<< Updated upstream
-            kwargs["vmin"], kwargs["vmax"] = 0.0, np.max(self.data[self.P > self.P_ERR])
-||||||| constructed merge base
-            kwargs["vmin"], kwargs["vmax"] = 0.0, min(np.max(self.data[self.P > self.P_ERR]), 100.0)
-=======
             self.error = self.P_ERR * 100.0
             self.fmt = "{0:.2f} ± {1:.2f} %"
             kwargs["vmin"], kwargs["vmax"] = 0.0, min(np.max(self.data[self.P > self.P_ERR]), 100.0)
->>>>>>> Stashed changes
             kwargs["alpha"] = 1.0 - 0.75 * (self.P < self.P_ERR)
             label = r"$P$ [%]"
         elif self.display_selection.lower() in ["pol_ang"]:
