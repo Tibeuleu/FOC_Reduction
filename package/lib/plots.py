@@ -3521,7 +3521,6 @@ if __name__ == "__main__":
                     savename="_".join([Stokes_UV[0].header["FILENAME"], args.type]),
                     plots_folder=args.static_pdf,
                     display=args.type,
-                    cmap="hot_r",
                 )
             else:
                 polarization_map(
