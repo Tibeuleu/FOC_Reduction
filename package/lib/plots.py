@@ -58,9 +58,9 @@ from mpl_toolkits.axes_grid1.anchored_artists import AnchoredDirectionArrows, An
 from scipy.ndimage import zoom as sc_zoom
 
 try:
-    from .utils import PCconf, princ_angle, rot2D, sci_not
+    from .utils import PCconf, princ_angle, rot2D, sci_not, cursor_data
 except ImportError:
-    from utils import PCconf, princ_angle, rot2D, sci_not
+    from utils import PCconf, princ_angle, rot2D, sci_not, cursor_data
 
 
 def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, plots_folder="", **kwargs):
@@ -363,10 +363,10 @@ def polarization_map(
         fig = plt.figure(figsize=(7 * ratiox, 7 * ratioy), layout="constrained")
     if ax is None:
         ax = fig.add_subplot(111, projection=wcs)
-        ax.set(aspect="equal", fc="k")  # , ylim=[-0.05 * stkI.shape[0], 1.05 * stkI.shape[0]])
+        ax.set(aspect="equal")  # , fc="w", ylim=[-0.05 * stkI.shape[0], 1.05 * stkI.shape[0]])
     # fig.subplots_adjust(hspace=0, wspace=0, left=0.102, right=1.02)
 
-    # ax.coords.grid(True, color='white', ls='dotted', alpha=0.5)
+    ax.coords.grid(True, color="grey", ls="dotted", alpha=0.5)
     ax.coords[0].set_axislabel("Right Ascension (J2000)")
     ax.coords[0].set_axislabel_position("t")
     ax.coords[0].set_ticklabel_position("t")
@@ -403,10 +403,10 @@ def polarization_map(
         "gist_ncar",
         "viridis",
     ]:
-        ax.set_facecolor("black")
+        ax.set_facecolor(plt.get_cmap(kwargs["cmap"])(0.0))
         font_color = "white"
     else:
-        ax.set_facecolor("white")
+        ax.set_facecolor(plt.get_cmap(kwargs["cmap"])(0.0))
         font_color = "black"
 
     if display.lower() in ["i", "intensity"]:
@@ -549,39 +549,39 @@ def polarization_map(
         text_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 0.5},
         arrow_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 1},
     )
+    ax.add_artist(px_sc)
+    ax.add_artist(north_dir)
 
     if display.lower() in ["i", "s_i", "snri", "pf", "p", "pa", "s_p", "snrp", "confp"] and step_vec != 0:
         if scale_vec == -1:
             poldata[np.isfinite(poldata)] = 1.0 / 2.0
             step_vec = 1
             scale_vec = 2.0
-        X, Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
-        U, V = (poldata * np.cos(np.pi / 2.0 + pangdata * np.pi / 180.0), poldata * np.sin(np.pi / 2.0 + pangdata * np.pi / 180.0))
-        ax.quiver(
-            X[::step_vec, ::step_vec],
-            Y[::step_vec, ::step_vec],
-            U[::step_vec, ::step_vec],
-            V[::step_vec, ::step_vec],
-            units="xy",
-            angles="uv",
-            scale=1.0 / scale_vec,
-            scale_units="xy",
-            pivot="mid",
-            headwidth=0.0,
-            headlength=0.0,
-            headaxislength=0.0,
-            width=kwargs["width"],
-            linewidth=kwargs["linewidth"],
-            color="w",
-            edgecolor="k",
-        )
-        pol_sc = AnchoredSizeBar(
-            ax.transData, scale_vec, r"$P$= 100 %", 4, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color
-        )
-
-        ax.add_artist(pol_sc)
-        ax.add_artist(px_sc)
-        ax.add_artist(north_dir)
+        if maskP.any():
+            X, Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
+            U, V = (poldata * np.cos(np.pi / 2.0 + pangdata * np.pi / 180.0), poldata * np.sin(np.pi / 2.0 + pangdata * np.pi / 180.0))
+            ax.quiver(
+                X[::step_vec, ::step_vec],
+                Y[::step_vec, ::step_vec],
+                U[::step_vec, ::step_vec],
+                V[::step_vec, ::step_vec],
+                units="xy",
+                angles="uv",
+                scale=1.0 / scale_vec,
+                scale_units="xy",
+                pivot="mid",
+                headwidth=0.0,
+                headlength=0.0,
+                headaxislength=0.0,
+                width=kwargs["width"],
+                linewidth=kwargs["linewidth"],
+                color="w",
+                edgecolor="k",
+            )
+            pol_sc = AnchoredSizeBar(
+                ax.transData, scale_vec, r"$P$= 100 %", 4, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color
+            )
+            ax.add_artist(pol_sc)
 
         ax.annotate(
             r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
@@ -3057,12 +3057,15 @@ class pol_map(object):
 
     def display(self, fig=None, ax=None, flux_lim=None):
         kwargs = dict([])
+        self.data, self.error, self.fmt = None, None, None
         if self.display_selection is None:
             self.display_selection = "total_flux"
         if flux_lim is None:
             flux_lim = self.flux_lim
         if self.display_selection.lower() in ["total_flux"]:
             self.data = self.I * self.map_convert
+            self.error = self.I_ERR * self.map_convert
+            self.fmt = "{0:.2e} ± {1:.2e}"
             if flux_lim is None:
                 vmin, vmax = (1.0 / 2.0 * np.median(self.data[self.data > 0.0]), np.max(self.data[self.data > 0.0]))
             else:
@@ -3071,6 +3074,8 @@ class pol_map(object):
             label = r"$F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]"
         elif self.display_selection.lower() in ["pol_flux"]:
             self.data = self.I * self.map_convert * self.P
+            self.error = self.I_ERR * self.map_convert
+            self.fmt = "{0:.2e} ± {1:.2e}"
             if flux_lim is None:
                 vmin, vmax = (1.0 / 2.0 * np.median(self.I[self.I > 0.0] * self.map_convert), np.max(self.I[self.I > 0.0] * self.map_convert))
             else:
@@ -3079,11 +3084,21 @@ class pol_map(object):
             label = r"$P \cdot F_{\lambda}$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]"
         elif self.display_selection.lower() in ["pol_deg"]:
             self.data = self.P * 100.0
+<<<<<<< Updated upstream
             kwargs["vmin"], kwargs["vmax"] = 0.0, np.max(self.data[self.P > self.P_ERR])
+||||||| constructed merge base
+            kwargs["vmin"], kwargs["vmax"] = 0.0, min(np.max(self.data[self.P > self.P_ERR]), 100.0)
+=======
+            self.error = self.P_ERR * 100.0
+            self.fmt = "{0:.2f} ± {1:.2f} %"
+            kwargs["vmin"], kwargs["vmax"] = 0.0, min(np.max(self.data[self.P > self.P_ERR]), 100.0)
+>>>>>>> Stashed changes
             kwargs["alpha"] = 1.0 - 0.75 * (self.P < self.P_ERR)
             label = r"$P$ [%]"
         elif self.display_selection.lower() in ["pol_ang"]:
             self.data = princ_angle(self.PA)
+            self.error = self.PA_ERR
+            self.fmt = "{0:.2f} ± {1:.2f} °"
             kwargs["vmin"], kwargs["vmax"] = 0, 180.0
             kwargs["alpha"] = 1.0 - 0.75 * (self.P < self.P_ERR)
             label = r"$\theta_{P}$ [°]"
@@ -3114,6 +3129,10 @@ class pol_map(object):
             self.im = ax.imshow(self.data, aspect="equal", cmap="inferno", **kwargs)
             plt.rcParams.update({"font.size": 14})
             self.cbar = fig.colorbar(self.im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=label)
+            if self.error is not None:
+                my_cursor = cursor_data(self.im, error=self.error, fmt=self.fmt)
+                self.im.get_cursor_data = my_cursor.get
+                self.im.format_cursor_data = my_cursor.format
             plt.rcParams.update({"font.size": 10})
             fig.canvas.draw_idle()
             return self.im
@@ -3123,6 +3142,8 @@ class pol_map(object):
             ax.set_ylim(0, self.data.shape[0])
             plt.rcParams.update({"font.size": 14})
             fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=label)
+            if format_cursor_data is not None:
+                self.im.format_cursor_data = format_cursor_data
             plt.rcParams.update({"font.size": 10})
             fig.canvas.draw_idle()
             return im
@@ -3506,6 +3527,7 @@ if __name__ == "__main__":
                     savename="_".join([Stokes_UV[0].header["FILENAME"], args.type]),
                     plots_folder=args.static_pdf,
                     display=args.type,
+                    cmap="hot_r",
                 )
             else:
                 polarization_map(

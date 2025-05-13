@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib.transforms import Bbox, BboxTransform
 
 
 def rot2D(ang):
@@ -152,6 +153,50 @@ def sci_not(v, err, rnd=1, out=str):
         return output[0] + r")e{0}".format(-power)
     else:
         return *output[1:], -power
+
+
+class cursor_data:
+    """
+    Object to overwrite data getter and formatter in interactive plots.
+    """
+
+    def __init__(self, im, error=None, fmt=None) -> None:
+        self.im = im
+        self.data = im.get_array()
+        self.fmt = "{:.2f}" if fmt is None else fmt
+        self.err = error
+
+    def set_err(self, err) -> None:
+        if self.data.shape != err.shape:
+            raise ValueError("Error and Data don't have the same shape")
+        else:
+            self.err = err
+
+    def set_fmt(self, fmt) -> None:
+        self.fmt = fmt
+
+    def get(self, event):
+        xmin, xmax, ymin, ymax = self.im.get_extent()
+        if self.im.origin == "upper":
+            ymin, ymax = ymax, ymin
+        data_extent = Bbox([[xmin, ymin], [xmax, ymax]])
+        array_extent = Bbox([[0, 0], [self.data.shape[1], self.data.shape[0]]])
+        trans = self.im.get_transform().inverted()
+        trans += BboxTransform(boxin=data_extent, boxout=array_extent)
+        point = trans.transform([event.x, event.y])
+        if any(np.isnan(point)):
+            return None
+        j, i = point.astype(int)
+        # Clip the coordinates at array bounds
+        if not (0 <= i < self.data.shape[0]) or not (0 <= j < self.data.shape[1]):
+            return None
+        elif self.err is not None:
+            return self.data[i, j], self.err[i, j]
+        else:
+            return self.data
+
+    def format(self, y) -> str:
+        return self.fmt.format(*y)
 
 
 def wcs_CD_to_PC(CD):
