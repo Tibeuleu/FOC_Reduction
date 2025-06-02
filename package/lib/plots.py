@@ -2464,9 +2464,9 @@ class pol_map(object):
         ax_snr_conf = self.fig.add_axes([0.115, 0.020, 0.05, 0.02])
         SNRi_max = np.max(self.I[self.IQU_cov[0, 0] > 0.0] / np.sqrt(self.IQU_cov[0, 0][self.IQU_cov[0, 0] > 0.0]))
         SNRp_max = np.max(self.P[self.P_ERR > 0.0] / self.P_ERR[self.P_ERR > 0.0])
-        s_I_cut = Slider(ax_I_cut, r"$SNR^{I}_{cut}$", 1.0, int(SNRi_max * 0.95), valstep=1, valinit=self.SNRi_cut)
+        s_I_cut = Slider(ax_I_cut, r"$SNR^{I}_{cut}$", 1.0, int(SNRi_max * 0.95), valstep=0.5, valinit=self.SNRi_cut)
         self.P_ERR_cut = Slider(
-            self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99
+            self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.675, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99
         )
         s_vec_sc = Slider(ax_vec_sc, r"Vec scale", 0.0, 10.0, valstep=1, valinit=self.scale_vec)
         b_snr_reset = Button(ax_snr_reset, "Reset")
@@ -2505,13 +2505,13 @@ class pol_map(object):
                 self.snr_conf = 0
                 b_snr_conf.label.set_text("Conf")
                 self.P_ERR_cut = Slider(
-                    self.ax_P_cut, r"$SNR^{P}_{cut}$", 1.0, max(int(SNRp_max * 0.95), 3), valstep=1, valinit=self.P_cut if P_cut >= 1.0 else 3
+                    self.ax_P_cut, r"$SNR^{P}_{cut}$", 1.0, max(int(SNRp_max * 0.95), 3), valstep=0.5, valinit=self.P_cut if P_cut >= 1.0 else 3
                 )
             else:
                 self.snr_conf = 1
                 b_snr_conf.label.set_text("SNR")
                 self.P_ERR_cut = Slider(
-                    self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99
+                    self.ax_P_cut, r"$Conf^{P}_{cut}$", 0.50, 1.0, valstep=[0.500, 0.6750, 0.900, 0.990, 0.999], valinit=self.P_cut if P_cut <= 1.0 else 0.99
                 )
             self.P_ERR_cut.on_changed(update_snrp)
             update_snrp(self.P_ERR_cut.val)

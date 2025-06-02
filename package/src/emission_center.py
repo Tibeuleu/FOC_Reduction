@@ -77,10 +77,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Look for the center of emission for a given reduced observation")
     parser.add_argument("-t", "--target", metavar="targetname", required=False, help="the name of the target", type=str, default=None)
-    parser.add_argument("-f", "--file", metavar="path", required=False, help="The full or relative path to the data product", type=str, default=None)
-    parser.add_argument("-c", "--pcut", metavar="pcut", required=False, help="The polarization cut for the data mask", type=float, default=0.99)
+    parser.add_argument("-f", "--file", metavar="path", required=True, help="The full or relative path to the data product", type=str, default=None)
+    parser.add_argument("-c", "--pcut", metavar="pcut", required=False, help="The polarization cut for the data mask", type=float, default=3.0)
     parser.add_argument("-d", "--display", metavar="display", required=False, help="The map on which to display info", type=str, default="pf")
-    parser.add_argument("-o", "--output_dir", metavar="directory_path", required=False, help="output directory path for the plots", type=str, default="./data")
+    parser.add_argument("-o", "--output_dir", metavar="directory_path", required=False, help="output directory path for the plots", type=str, default=None)
     args = parser.parse_args()
     exitcode = main(infile=args.file, P_cut=args.pcut, target=args.target, display=args.display, output_dir=args.output_dir)
     print("Written to: ", exitcode)
