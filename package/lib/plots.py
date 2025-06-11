@@ -452,7 +452,7 @@ def polarization_map(
         display = "pa"
         vmin, vmax = 0.0, 180.0
         im = ax.imshow(princ_angle(pang), vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\theta_P$ [°]")
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\Psi$ [°]")
     elif display.lower() in ["s_p", "pol_err", "pol_deg_err"]:
         # Display polarization degree error map
         display = "s_p"
@@ -590,7 +590,7 @@ def polarization_map(
             + "\n"
             + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_diluted * 100.0, P_diluted_err * 100.0)
             + "\n"
-            + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_diluted, PA_diluted_err),
+            + r"$\Psi^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_diluted, PA_diluted_err),
             color="white",
             xy=(0.01, 1.00),
             xycoords="axes fraction",
@@ -3420,7 +3420,7 @@ class pol_map(object):
                 + "\n"
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
                 + "\n"
-                + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
+                + r"$\Psi^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
                 + str_conf
             )
             self.str_cut = ""
@@ -3432,7 +3432,7 @@ class pol_map(object):
             #     + "\n"
             #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
             #     + "\n"
-            #     + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
+            #     + r"$\Psi^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
             # )
             self.an_int = ax.annotate(
                 self.str_int + self.str_cut,
@@ -3456,7 +3456,7 @@ class pol_map(object):
                 + "\n"
                 + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_reg * 100.0, np.ceil(P_reg_err * 1000.0) / 10.0)
                 + "\n"
-                + r"$\theta_{{P}}^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
+                + r"$\Psi^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_reg, np.ceil(PA_reg_err * 10.0) / 10.0)
                 + str_conf
             )
             str_cut = ""
@@ -3468,7 +3468,7 @@ class pol_map(object):
             #     + "\n"
             #     + r"$P^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_cut * 100.0, np.ceil(P_cut_err * 1000.0) / 10.0)
             #     + "\n"
-            #     + r"$\theta_{{P}}^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
+            #     + r"$\Psi^{{cut}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_cut, np.ceil(PA_cut_err * 10.0) / 10.0)
             # )
             ax.annotate(
                 str_int + str_cut,
