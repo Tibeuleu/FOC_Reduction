@@ -435,7 +435,13 @@ def polarization_map(
         else:
             vmin, vmax = 1.0 / 2.0 * np.median(np.sqrt(stk_cov[0, 0][stkI > 0.0]) * convert_flux), np.max(stkI[stkI > 0.0] * convert_flux)
             pfmax = (stkI[stkI > 0.0] * pol[stkI > 0.0] * convert_flux).max()
-        im = ax.imshow(stkI * convert_flux * pol, norm=LogNorm(vmin, vmax), aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (SNRp <= 1.0))
+        im = ax.imshow(
+            stkI * convert_flux * pol,
+            norm=LogNorm(vmin, vmax),
+            aspect="equal",
+            cmap=kwargs["cmap"],
+            alpha=1.0 - 0.75 * (np.logical_or(SNRp <= 1.0, SNRi <= 3.0)),
+        )
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$F_{\lambda} \cdot P$ [$ergs \cdot cm^{-2} \cdot s^{-1} \cdot \AA^{-1}$]")
         # levelsPf = np.linspace(0.60, 0.50, 5) * pfmax
         levelsPf = np.array([8.25, 16.5, 33.0, 66.0]) / 100.0 * pfmax
@@ -444,14 +450,22 @@ def polarization_map(
     elif display.lower() in ["p", "pol", "pol_deg"]:
         # Display polarization degree map
         display = "p"
-        vmin, vmax = max(np.floor(100.0 * pol[SNRp > 1.0].min()), 0.0), min(np.ceil(100.0 * pol[SNRp > 1.0].max()), 100.0)
-        im = ax.imshow(pol * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (SNRp <= 1.0))
+        vmin, vmax = (
+            max(np.floor(100.0 * pol[np.logical_and(SNRp > 1.0, SNRi > 3.0)].min()), 0.0),
+            min(np.ceil(100.0 * pol[np.logical_and(SNRp > 1.0, SNRi > 3.0)].max()), 100.0),
+        )
+        im = ax.imshow(pol * 100.0, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (np.logical_or(SNRp <= 1.0, SNRi <= 3.0)))
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$P$ [%]")
     elif display.lower() in ["pa", "pang", "pol_ang"]:
         # Display polarization degree map
         display = "pa"
-        vmin, vmax = 0.0, 180.0
-        im = ax.imshow(princ_angle(pang), vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (SNRp <= 1.0))
+        vmin, vmax = (
+            max(np.floor(princ_angle(pang[np.logical_and(SNRp > 1.0, SNRi > 3.0)]).min()), 0.0),
+            min(np.ceil(princ_angle(pang[np.logical_and(SNRp > 1.0, SNRi > 3.0)]).max()), 180.0),
+        )
+        im = ax.imshow(
+            princ_angle(pang), vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (np.logical_or(SNRp <= 1.0, SNRi <= 3.0))
+        )
         fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$\Psi$ [°]")
     elif display.lower() in ["s_p", "pol_err", "pol_deg_err"]:
         # Display polarization degree error map

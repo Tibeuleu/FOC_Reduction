@@ -365,10 +365,10 @@ def bkg_hist(data, error, mask, headers, sub_type=None, subtract_error=True, dis
         # Fit a gaussian to the log-intensity histogram
         bins_stdev = binning[-1][hist > hist.max() / 2.0]
         stdev = bins_stdev[-1] - bins_stdev[0]
-        p0 = [hist.max(), binning[-1][np.argmax(hist)], stdev, 1e-3, 1e-3, 1e-3, 1e-3]
-        popt, pcov = curve_fit(gausspol, binning[-1], hist, p0=p0)
-        # p0 = [hist.max(), binning[-1][np.argmax(hist)], stdev]
-        # popt, pcov = curve_fit(gauss, binning[-1], hist, p0=p0)
+        # p0 = [hist.max(), binning[-1][np.argmax(hist)], stdev, 1e-3, 1e-3, 1e-3, 1e-3]
+        # popt, pcov = curve_fit(gausspol, binning[-1], hist, p0=p0)
+        p0 = [hist.max(), binning[-1][np.argmax(hist)], stdev]
+        popt, pcov = curve_fit(gauss, binning[-1], hist, p0=p0)
         coeff.append(popt)
         bkg = popt[1] + np.abs(popt[2]) * subtract_error
 
