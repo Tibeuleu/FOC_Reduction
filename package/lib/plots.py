@@ -360,7 +360,7 @@ def polarization_map(
     if fig is None:
         ratiox = max(int(stkI.shape[1] / (stkI.shape[0])), 1)
         ratioy = max(int((stkI.shape[0]) / stkI.shape[1]), 1)
-        fig = plt.figure(figsize=(8 * ratiox, 8 * ratioy), layout="constrained")
+        fig = plt.figure(figsize=(6 * ratiox, 6 * ratioy), layout="constrained")
     if ax is None:
         ax = fig.add_subplot(111, projection=wcs)
         ax.set(aspect="equal")  # , ylim=[-0.05 * stkI.shape[0], 1.05 * stkI.shape[0]])
@@ -373,7 +373,7 @@ def polarization_map(
     ax.set_ylabel("Declination (J2000)", labelpad=-1)
 
     vmin, vmax = 0.0, stkI.max() * convert_flux
-    for key, value in [["cmap", [["cmap", "inferno"]]], ["width", [["width", 0.4]]], ["linewidth", [["linewidth", 0.6]]]]:
+    for key, value in [["cmap", [["cmap", "inferno"]]], ["width", [["width", 0.3]]], ["linewidth", [["linewidth", 0.5]]]]:
         try:
             _ = kwargs[key]
         except KeyError:
@@ -493,9 +493,9 @@ def polarization_map(
         # Display I_stokes signal-to-noise map
         display = "snri"
         vmin, vmax = 0.0, np.max(SNRi[np.isfinite(SNRi)])
-        if vmax * 0.99 > SNRi_cut:
+        if np.floor(vmax - SNRi_cut) > 0.0:
             im = ax.imshow(SNRi, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-            levelsSNRi = np.linspace(SNRi_cut, vmax * 0.99, 5).astype(int)
+            levelsSNRi = np.linspace(SNRi_cut, vmax * 0.99, min(np.floor(vmax - P_cut).astype(int), 5)).astype(int)
             print("SNRi contour levels : ", levelsSNRi)
             ax.contour(SNRi, levels=levelsSNRi, colors="grey", linewidths=0.5)
         else:
@@ -505,9 +505,9 @@ def polarization_map(
         # Display polarization degree signal-to-noise map
         display = "snrp"
         vmin, vmax = 0.0, np.max(SNRp[np.isfinite(SNRp)])
-        if vmax * 0.99 > SNRp_cut:
+        if np.floor(vmax - SNRp_cut) > 0.0:
             im = ax.imshow(SNRp, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-            levelsSNRp = np.linspace(P_cut, vmax * 0.99, 5).astype(int)
+            levelsSNRp = np.linspace(SNRp_cut, vmax * 0.99, min(np.floor(vmax - SNRp_cut).astype(int), 5)).astype(int)
             print("SNRp contour levels : ", levelsSNRp)
             ax.contour(SNRp, levels=levelsSNRp, colors="grey", linewidths=0.5)
         else:
@@ -543,7 +543,7 @@ def polarization_map(
     PA_diluted = Stokes[0].header["PA_int"]
     PA_diluted_err = Stokes[0].header["sPA_int"]
 
-    plt.rcParams.update({"font.size": 12})
+    plt.rcParams.update({"font.size": 10})
     px_size = wcs.wcs.get_cdelt()[0] * 3600.0
     px_sc = AnchoredSizeBar(ax.transData, 1.0 / px_size, "1 arcsec", 3, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color)
     north_dir = AnchoredDirectionArrows(
@@ -571,7 +571,7 @@ def polarization_map(
             poldata[np.isfinite(poldata)] = 1.0 / 2.0
             step_vec = 1
             scale_vec = 2.0
-        if maskP.any():
+        if mask.any():
             X, Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
             U, V = (poldata * np.cos(np.pi / 2.0 + pangdata * np.pi / 180.0), poldata * np.sin(np.pi / 2.0 + pangdata * np.pi / 180.0))
             ax.quiver(
