@@ -21,6 +21,9 @@ def main(infile, P_cut=0.99, target=None, display="pf", output_dir=None):
 
     Stokes = fits_open(infile)
     stkI = Stokes["I_STOKES"].data
+    s_I = np.sqrt(Stokes["IQU_COV_MATRIX"].data[0, 0])
+    SNRi = np.zeros(stkI.shape)
+    SNRi[s_I > 0.0] = stkI[s_I > 0.0] / s_I[s_I > 0.0]
     QN, UN, QN_ERR, UN_ERR = np.full((4, stkI.shape[0], stkI.shape[1]), np.nan)
     for sflux, nflux in zip(
         [Stokes["Q_STOKES"].data, Stokes["U_STOKES"].data, np.sqrt(Stokes["IQU_COV_MATRIX"].data[1, 1]), np.sqrt(Stokes["IQU_COV_MATRIX"].data[2, 2])],
@@ -28,11 +31,11 @@ def main(infile, P_cut=0.99, target=None, display="pf", output_dir=None):
     ):
         nflux[stkI > 0.0] = sflux[stkI > 0.0] / stkI[stkI > 0.0]
     Stokesconf = PCconf(QN, UN, QN_ERR, UN_ERR)
-    Stokesmask = Stokes["DATA_MASK"].data.astype(bool)
+    Stokesmask = np.logical_and(Stokes["DATA_MASK"].data.astype(bool), SNRi > 10.0)
     Stokessnr = np.zeros(Stokesmask.shape)
     Stokessnr[Stokes["POL_DEG_ERR"].data > 0.0] = (
         Stokes["POL_DEG_DEBIASED"].data[Stokes["POL_DEG_ERR"].data > 0.0] / Stokes["POL_DEG_ERR"].data[Stokes["POL_DEG_ERR"].data > 0.0]
-    )
+    ) * Stokesmask[Stokes["POL_DEG_ERR"].data > 0.0]
 
     if P_cut < 1.0:
         Stokescentconf, Stokescenter = CenterConf(Stokesconf > P_cut, Stokes["POL_ANG"].data, Stokes["POL_ANG_ERR"].data)
