@@ -373,7 +373,7 @@ def polarization_map(
     ax.set_ylabel("Declination (J2000)", labelpad=-1)
 
     vmin, vmax = 0.0, stkI.max() * convert_flux
-    for key, value in [["cmap", [["cmap", "inferno"]]], ["width", [["width", 0.3]]], ["linewidth", [["linewidth", 0.5]]]]:
+    for key, value in [["cmap", [["cmap", "inferno"]]], ["width", [["width", 0.4]]], ["linewidth", [["linewidth", 0.6]]]]:
         try:
             _ = kwargs[key]
         except KeyError:
@@ -925,14 +925,22 @@ class align_maps(object):
     def write_map_to(self, path="map.fits", suffix="aligned", data_dir="."):
         new_head = deepcopy(self.map_header)
         new_head.update(self.map_wcs.to_header())
-        new_hdul = fits.HDUList(fits.PrimaryHDU(self.map_data, new_head))
+        new_hdul = fits.HDUList([fits.PrimaryHDU(self.map_data, new_head)])
+        for i in range(1, len(self.map)):
+            new_head = deepcopy(self.map[i].header)
+            new_head.update(self.map_wcs.to_header())
+            new_hdul.append(fits.ImageHDU(self.map[i].data, new_head))
         new_hdul.writeto("_".join([path[:-5], suffix]) + ".fits", overwrite=True)
         return 0
 
     def write_other_to(self, path="other_map.fits", suffix="aligned", data_dir="."):
         new_head = deepcopy(self.other_header)
         new_head.update(self.other_wcs.to_header())
-        new_hdul = fits.HDUList(fits.PrimaryHDU(self.other_data, new_head))
+        new_hdul = fits.HDUList([fits.PrimaryHDU(self.other_data, new_head)])
+        for i in range(1, len(self.other)):
+            new_head = deepcopy(self.other[i].header)
+            new_head.update(self.other_wcs.to_header())
+            new_hdul.append(fits.ImageHDU(self.other[i].data, new_head))
         new_hdul.writeto("_".join([path[:-5], suffix]) + ".fits", overwrite=True)
         return 0
 
