@@ -44,7 +44,6 @@ from copy import deepcopy
 from os.path import join as path_join
 
 import matplotlib.font_manager as fm
-import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -53,6 +52,7 @@ from astropy.wcs import WCS
 from matplotlib.colors import LogNorm
 from matplotlib.patches import Circle, FancyArrowPatch, Rectangle
 from matplotlib.path import Path
+from matplotlib.patheffects import withStroke
 from matplotlib.widgets import Button, LassoSelector, RectangleSelector, Slider, TextBox
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredDirectionArrows, AnchoredSizeBar
 from scipy.ndimage import zoom as sc_zoom
@@ -360,7 +360,7 @@ def polarization_map(
     if fig is None:
         ratiox = max(int(stkI.shape[1] / (stkI.shape[0])), 1)
         ratioy = max(int((stkI.shape[0]) / stkI.shape[1]), 1)
-        fig = plt.figure(figsize=(6 * ratiox, 6 * ratioy), layout="constrained")
+        fig = plt.figure(figsize=(7 * ratiox, 7 * ratioy), layout="constrained")
     if ax is None:
         ax = fig.add_subplot(111, projection=wcs)
         ax.set(aspect="equal")  # , ylim=[-0.05 * stkI.shape[0], 1.05 * stkI.shape[0]])
@@ -403,11 +403,12 @@ def polarization_map(
         "gist_ncar",
         "viridis",
     ]:
-        ax.set_facecolor(plt.get_cmap(kwargs["cmap"])(0.0))
         font_color = "white"
+        bkg_color = "black"
     else:
-        ax.set_facecolor(plt.get_cmap(kwargs["cmap"])(0.0))
         font_color = "black"
+        bkg_color = "white"
+    ax.set_facecolor(bkg_color)
 
     if display.lower() in ["i", "intensity"]:
         # If no display selected, show intensity map
@@ -500,7 +501,7 @@ def polarization_map(
             ax.contour(SNRi, levels=levelsSNRi, colors="grey", linewidths=0.5)
         else:
             im = ax.imshow(SNRi, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.50, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
     elif display.lower() in ["snr", "snrp"]:
         # Display polarization degree signal-to-noise map
         display = "snrp"
@@ -543,6 +544,7 @@ def polarization_map(
     PA_diluted = Stokes[0].header["PA_int"]
     PA_diluted_err = Stokes[0].header["sPA_int"]
 
+    aspect = (ax.get_xbound()[1] - ax.get_xbound()[0]) / (ax.get_ybound()[1] - ax.get_ybound()[0])
     plt.rcParams.update({"font.size": 10})
     px_size = wcs.wcs.get_cdelt()[0] * 3600.0
     px_sc = AnchoredSizeBar(ax.transData, 1.0 / px_size, "1 arcsec", 3, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color)
@@ -550,19 +552,22 @@ def polarization_map(
         ax.transAxes,
         "E",
         "N",
-        length=-0.07,
-        fontsize=0.03,
+        length=-0.07 / aspect,
+        fontsize=0.03 / np.sqrt(aspect),
         loc=1,
-        aspect_ratio=-(stkI.shape[1] / (stkI.shape[0] * 1.25)),
+        aspect_ratio=-aspect,
         sep_y=0.01,
         sep_x=0.01,
         back_length=0.0,
-        head_length=7.0,
-        head_width=7.0,
+        head_length=4.0,
+        head_width=4.0,
+        tail_width=1.0,
         angle=-Stokes[0].header["orientat"],
-        text_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 0.5},
-        arrow_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 1},
+        text_props={"ec": font_color, "fc": font_color, "alpha": 1, "lw": 0.5},
+        arrow_props={"ec": font_color, "fc": font_color, "alpha": 1, "lw": 0.5},
     )
+    for children in north_dir.box.get_children() + [px_sc.__dict__[child].get_children()[0] for child in ["txt_label", "size_bar"]]:
+        children.set_path_effects([withStroke(linewidth=2.0, foreground=bkg_color)])
     ax.add_artist(px_sc)
     ax.add_artist(north_dir)
 
@@ -595,6 +600,8 @@ def polarization_map(
             pol_sc = AnchoredSizeBar(
                 ax.transData, scale_vec, r"$P$= 100 %", 4, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color
             )
+            for children in [pol_sc.__dict__[child].get_children()[0] for child in ["txt_label", "size_bar"]]:
+                children.set_path_effects([withStroke(linewidth=2.0, foreground=bkg_color)])
             ax.add_artist(pol_sc)
 
         ax.annotate(
@@ -605,10 +612,10 @@ def polarization_map(
             + r"$P^{{int}}$ = {0:.1f} $\pm$ {1:.1f} %".format(P_diluted * 100.0, P_diluted_err * 100.0)
             + "\n"
             + r"$\Psi^{{int}}$ = {0:.1f} $\pm$ {1:.1f} °".format(PA_diluted, PA_diluted_err),
-            color="white",
+            color=font_color,
             xy=(0.01, 1.00),
             xycoords="axes fraction",
-            path_effects=[pe.withStroke(linewidth=2.0, foreground="k")],
+            path_effects=[withStroke(linewidth=2.0, foreground=bkg_color)],
             verticalalignment="top",
             horizontalalignment="left",
         )
@@ -620,10 +627,10 @@ def polarization_map(
             r"$F_{{\lambda}}^{{int}}$({0:.0f} $\AA$) = {1} $ergs \cdot cm^{{-2}} \cdot s^{{-1}} \cdot \AA^{{-1}}$".format(
                 pivot_wav, sci_not(I_diluted * convert_flux, I_diluted_err * convert_flux, 2)
             ),
-            color="white",
+            color=font_color,
             xy=(0.01, 1.00),
             xycoords="axes fraction",
-            path_effects=[pe.withStroke(linewidth=2.0, foreground="k")],
+            path_effects=[withStroke(linewidth=2.0, foreground=bkg_color)],
             verticalalignment="top",
             horizontalalignment="left",
         )
@@ -762,7 +769,7 @@ class align_maps(object):
                 fontsize=12,
                 xy=(0.01, 0.93),
                 xycoords="axes fraction",
-                path_effects=[pe.withStroke(linewidth=0.5, foreground="k")],
+                path_effects=[withStroke(linewidth=0.5, foreground="k")],
             )
         if "ORIENTAT" in list(self.map_header.keys()):
             north_dir1 = AnchoredDirectionArrows(
@@ -823,7 +830,7 @@ class align_maps(object):
                 fontsize=12,
                 xy=(0.01, 0.93),
                 xycoords="axes fraction",
-                path_effects=[pe.withStroke(linewidth=0.5, foreground="k")],
+                path_effects=[withStroke(linewidth=0.5, foreground="k")],
             )
         if "ORIENTAT" in list(self.other_header.keys()):
             north_dir2 = AnchoredDirectionArrows(
@@ -1420,11 +1427,11 @@ class overplot_pol(align_maps):
         SNRi[stk_cov[0, 0] > 0.0] = stkI[stk_cov[0, 0] > 0.0] / np.sqrt(stk_cov[0, 0][stk_cov[0, 0] > 0.0])
         pol[SNRi < SNRi_cut] = np.nan
 
-        plt.rcParams.update({"font.size": 16})
+        plt.rcParams.update({"font.size": 12})
         ratiox = max(int(stkI.shape[1] / stkI.shape[0]), 1)
         ratioy = max(int(stkI.shape[0] / stkI.shape[1]), 1)
         self.px_scale = self.wcs_UV.wcs.get_cdelt()[0] / self.other_wcs.wcs.get_cdelt()[0]
-        self.fig_overplot, self.ax_overplot = plt.subplots(figsize=(10 * ratiox, 12 * ratioy), subplot_kw=dict(projection=self.other_wcs))
+        self.fig_overplot, self.ax_overplot = plt.subplots(figsize=(6 * ratiox, 6 * ratioy), subplot_kw=dict(projection=self.other_wcs))
         self.fig_overplot.subplots_adjust(hspace=0, wspace=0, bottom=0.1, left=0.1, top=0.80, right=1.02)
 
         self.ax_overplot.set_xlabel(label="Right Ascension (J2000)")
@@ -1434,8 +1441,8 @@ class overplot_pol(align_maps):
         for key, value in [
             ["cmap", [["cmap", "inferno"]]],
             ["norm", [["vmin", vmin], ["vmax", vmax]]],
-            ["width", [["width", 0.5 * self.px_scale]]],
-            ["linewidth", [["linewidth", 0.3 * self.px_scale]]],
+            ["width", [["width", 0.4]]],
+            ["linewidth", [["linewidth", 0.6]]],
         ]:
             try:
                 _ = kwargs[key]
@@ -1485,7 +1492,7 @@ class overplot_pol(align_maps):
                 vmax=kwargs["vmax"],
             )
         self.cbar = self.fig_overplot.colorbar(
-            self.im, ax=self.ax_overplot, aspect=80, shrink=0.75, pad=0.025, label=r"$F_{{\lambda}}$ [{0:s}]".format(self.other_unit)
+            self.im, ax=self.ax_overplot, aspect=40, shrink=0.75, pad=0.015, label=r"$F_{{\lambda}}$ [{0:s}]".format(self.other_unit)
         )
 
         # Display full size polarization vectors
@@ -1493,10 +1500,10 @@ class overplot_pol(align_maps):
         if step_vec != 0:
             vecstr = "polarization vectors "
             if scale_vec is None:
-                self.scale_vec = 2.0 * self.px_scale
+                self.scale_vec = 2.0
                 pol[np.isfinite(pol)] = 1.0 / 2.0
             else:
-                self.scale_vec = scale_vec * self.px_scale
+                self.scale_vec = scale_vec
             self.X, self.Y = np.meshgrid(np.arange(stkI.shape[1]), np.arange(stkI.shape[0]))
             self.U, self.V = (pol * np.cos(np.pi / 2.0 + pang * np.pi / 180.0), pol * np.sin(np.pi / 2.0 + pang * np.pi / 180.0))
             self.Q = self.ax_overplot.quiver(
@@ -1522,30 +1529,31 @@ class overplot_pol(align_maps):
 
         # Display Stokes as contours
         disptypestr = ""
-        if levels is not None:
+        if levels is not None or disptype is not None:
+            pol = deepcopy(self.Stokes_UV["POL_DEG_DEBIASED"].data)
             if disptype.lower() == "p":
                 disptypestr = "polarization degree"
-                if levels == "Default":
-                    levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(pol[stkI > 0.0])
+                if type(levels) not in [list, np.ndarray]:
+                    levels = np.array([0.1, 1.0, 5.00, 10.0, 20.0, 50.0]) / 100.0
                 cont_stk = self.ax_overplot.contour(
                     pol * 100.0, levels=levels * 100.0, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
                 )
             elif disptype.lower() == "pf":
                 disptypestr = "polarized flux"
-                if levels == "Default":
-                    levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0] * pol[stkI > 0.0]) * self.map_convert
+                if type(levels) not in [list, np.ndarray]:
+                    levels = np.array([5.0, 8.25, 16.5, 33.0, 66.0]) / 100.0 * np.max(stkI[stkI > 0.0] * pol[stkI > 0.0]) * self.map_convert
                 cont_stk = self.ax_overplot.contour(
                     stkI * pol * self.map_convert, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
                 )
             elif disptype.lower() == "snri":
                 disptypestr = "Stokes I signal-to-noise"
-                if levels == "Default":
-                    levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(SNRi[stk_cov[0, 0] > 0.0])
+                if type(levels) not in [list, np.ndarray]:
+                    levels = np.array([3.0, 5.0, 10.0, 20.0, 50.0])
                 cont_stk = self.ax_overplot.contour(SNRi, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV))
             else:  # default to intensity contours
                 disptypestr = "Stokes I"
-                if levels == "Default":
-                    levels = np.array([2.0, 5.0, 10.0, 20.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0]) * self.map_convert
+                if type(levels) not in [list, np.ndarray]:
+                    levels = np.array([0.1, 1.0, 10.0, 20.0, 50.0, 90.0]) / 100.0 * np.max(stkI[stkI > 0.0]) * self.map_convert
                 cont_stk = self.ax_overplot.contour(
                     stkI * self.map_convert, levels=levels, colors="grey", alpha=0.75, transform=self.ax_overplot.get_transform(self.wcs_UV)
                 )
@@ -1573,16 +1581,20 @@ class overplot_pol(align_maps):
             self.ax_overplot.transAxes,
             "E",
             "N",
-            length=-0.08,
+            length=-0.07,
             fontsize=0.03,
             loc=1,
             aspect_ratio=-(self.ax_overplot.get_xbound()[1] - self.ax_overplot.get_xbound()[0])
             / (self.ax_overplot.get_ybound()[1] - self.ax_overplot.get_ybound()[0]),
             sep_y=0.01,
             sep_x=0.01,
+            back_length=0.0,
+            head_length=7.0,
+            head_width=7.0,
             angle=-self.Stokes_UV[0].header["orientat"],
             color=font_color,
-            arrow_props={"ec": "k", "fc": "w", "alpha": 1, "lw": 0.5},
+            text_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 0.33},
+            arrow_props={"ec": "k", "fc": font_color, "alpha": 1, "lw": 1},
         )
         self.ax_overplot.add_artist(north_dir)
         if step_vec != 0:
@@ -1619,7 +1631,7 @@ class overplot_pol(align_maps):
         if disptypestr != "":
             labels.append("{0:s} {1:s} contour".format(self.map_observer, disptypestr))
             handles.append(Rectangle((0, 0), 1, 1, fill=False, ec=cont_stk.get_edgecolor()[0]))
-            disptypestr += " contours"
+            disptypestr = "and " + disptypestr + " contours"
         self.legend = self.ax_overplot.legend(
             handles=handles, labels=labels, bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", borderaxespad=0.0
         )
@@ -1803,7 +1815,7 @@ class align_pol(object):
                 fontsize=12,
                 xy=(0.01, 0.93),
                 xycoords="axes fraction",
-                path_effects=[pe.withStroke(linewidth=0.5, foreground="k")],
+                path_effects=[withStroke(linewidth=0.5, foreground="k")],
             )
 
         if savename is not None:
@@ -2469,10 +2481,10 @@ class pol_map(object):
         plt.rcParams.update({"font.size": 10})
         self.fig, self.ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(projection=self.wcs))
         self.fig.subplots_adjust(hspace=0, wspace=0, right=1.02)
-        self.ax_cosmetics()
 
         # Display selected data (Default to total flux)
         self.display()
+        self.ax_cosmetics()
         # Display polarization vectors in SNR_cut
         self.pol_vector()
         # Display integrated values in ROI
@@ -2501,18 +2513,20 @@ class pol_map(object):
             self.SNRi = val
             self.pol_vector()
             self.pol_int()
+            self.ax_cosmetics(change="pol")
             self.fig.canvas.draw_idle()
 
         def update_snrp(val):
             self.SNRp = val
             self.pol_vector()
             self.pol_int()
+            self.ax_cosmetics(change="pol")
             self.fig.canvas.draw_idle()
 
         def update_vecsc(val):
             self.scale_vec = val
             self.pol_vector()
-            self.ax_cosmetics()
+            self.ax_cosmetics(change="pol")
             self.fig.canvas.draw_idle()
 
         def reset_snr(event):
@@ -2759,11 +2773,11 @@ class pol_map(object):
                 self.region = deepcopy(self.data_mask.astype(bool))
                 self.pol_int()
                 self.ax.reset_wcs(self.wcs)
-                self.ax_cosmetics()
                 self.display()
                 self.ax.set_xlim(0, self.I.shape[1])
                 self.ax.set_ylim(0, self.I.shape[0])
                 self.pol_vector()
+                self.ax_cosmetics(change="size")
             else:
                 self.cropped = True
                 self.crop_instance = crop_Stokes(self.Stokes, fig=self.fig, ax=self.ax)
@@ -2780,9 +2794,9 @@ class pol_map(object):
             self.region = None
             self.pol_int()
             self.ax.reset_wcs(self.wcs)
-            self.ax_cosmetics()
             self.display()
             self.pol_vector()
+            self.ax_cosmetics(change="size")
 
         b_crop.on_clicked(crop)
         b_crop_reset.on_clicked(reset_crop)
@@ -2808,10 +2822,10 @@ class pol_map(object):
             ax_text_save.set(visible=False)
             if expression != "":
                 save_fig, save_ax = plt.subplots(figsize=(8, 6), layout="constrained", subplot_kw=dict(projection=self.wcs))
-                self.ax_cosmetics(ax=save_ax)
                 self.display(fig=save_fig, ax=save_ax)
                 self.pol_vector(fig=save_fig, ax=save_ax)
                 self.pol_int(fig=save_fig, ax=save_ax)
+                self.ax_cosmetics(ax=save_ax)
                 # save_fig.suptitle(r"{0:s} with $SNR_{{p}} \geq$ {1:d} and $SNR_{{I}} \geq$ {2:d}".format(self.targ, int(self.SNRp), int(self.SNRi)))
                 if expression[-4:] not in [".png", ".jpg", ".pdf"]:
                     expression += ".pdf"
@@ -3015,67 +3029,97 @@ class pol_map(object):
             SNRp_mask = self.conf > self.SNRp
         return np.logical_and(SNRi_mask, SNRp_mask)
 
-    def ax_cosmetics(self, ax=None):
+    def ax_cosmetics(self, ax=None, change=None):
         if ax is None:
             ax = self.ax
-        ax.set(aspect="equal", fc="black")
-
-        ax.coords.grid(True, color="white", ls="dotted", alpha=0.5)
-        ax.coords[0].set_axislabel("Right Ascension (J2000)")
-        ax.coords[0].set_axislabel_position("t")
-        ax.coords[0].set_ticklabel_position("t")
-        ax.set_ylabel("Declination (J2000)", labelpad=-1)
-
-        # Display scales and orientation
         fontprops = fm.FontProperties(size=14)
-        px_size = self.wcs.wcs.cdelt[0] * 3600.0
-        if hasattr(self, "px_sc"):
-            self.px_sc.remove()
-        self.px_sc = AnchoredSizeBar(
-            ax.transData,
-            1.0 / px_size,
-            "1 arcsec",
-            3,
-            pad=0.5,
-            sep=5,
-            borderpad=0.5,
-            frameon=False,
-            size_vertical=0.005,
-            color="white",
-            fontproperties=fontprops,
-        )
-        ax.add_artist(self.px_sc)
-        if hasattr(self, "pol_sc"):
-            self.pol_sc.remove()
-        if self.scale_vec != 0:
-            scale_vec = self.scale_vec
-        else:
-            scale_vec = 2.0
-        self.pol_sc = AnchoredSizeBar(
-            ax.transData, scale_vec, r"$P$= 100%", 4, pad=0.5, sep=5, borderpad=0.5, frameon=False, size_vertical=0.005, color="white", fontproperties=fontprops
-        )
-        ax.add_artist(self.pol_sc)
-        if hasattr(self, "north_dir"):
-            self.north_dir.remove()
-        self.north_dir = AnchoredDirectionArrows(
-            ax.transAxes,
-            "E",
-            "N",
-            length=-0.05,
-            fontsize=0.02,
-            loc=1,
-            aspect_ratio=-(self.I.shape[1] / self.I.shape[0]),
-            sep_y=0.01,
-            sep_x=0.01,
-            back_length=0.0,
-            head_length=7.5,
-            head_width=7.5,
-            angle=-self.Stokes[0].header["orientat"],
-            color="white",
-            text_props={"ec": None, "fc": "w", "alpha": 1, "lw": 0.4},
-            arrow_props={"ec": None, "fc": "w", "alpha": 1, "lw": 1},
-        )
-        ax.add_artist(self.north_dir)
+        if change in [None, "size"]:
+            ax.set(aspect="equal", fc="black")
+            aspect_ratio = (ax.get_xbound()[1] - ax.get_xbound()[0]) / (ax.get_ybound()[1] - ax.get_ybound()[0])
+            ax.coords.grid(True, color="white", ls="dotted", alpha=0.5)
+            ax.coords[0].set_axislabel("Right Ascension (J2000)")
+            ax.coords[0].set_axislabel_position("t")
+            ax.coords[0].set_ticklabel_position("t")
+            ax.set_ylabel("Declination (J2000)", labelpad=-1)
+
+            # Display scales and orientation
+            px_size = self.wcs.wcs.cdelt[0] * 3600.0
+            px_sc = AnchoredSizeBar(
+                ax.transData,
+                1.0 / px_size,
+                "1 arcsec",
+                3,
+                pad=0.5,
+                sep=5,
+                borderpad=0.5,
+                frameon=False,
+                size_vertical=0.005,
+                color="white",
+                fontproperties=fontprops,
+            )
+            north_dir = AnchoredDirectionArrows(
+                ax.transAxes,
+                "E",
+                "N",
+                length=-0.05 / np.sqrt(aspect_ratio),
+                fontsize=0.02 / np.sqrt(aspect_ratio),
+                loc=1,
+                aspect_ratio=-aspect_ratio,
+                sep_y=0.01,
+                sep_x=0.01,
+                back_length=0.0,
+                head_length=5.0,
+                head_width=5.0,
+                tail_width=1.0,
+                angle=-self.Stokes[0].header["orientat"],
+                color="white",
+                text_props={"ec": "w", "fc": "w", "alpha": 1, "lw": 0.5},
+                arrow_props={"ec": "w", "fc": "w", "alpha": 1, "lw": 0.5},
+            )
+            for children in north_dir.box.get_children() + px_sc.txt_label.get_children() + px_sc.size_bar.get_children():
+                children.set_path_effects([withStroke(linewidth=2.0, foreground="k")])
+            if hasattr(self, "px_sc"):
+                self.px_sc.remove()
+                self.px_sc = px_sc
+                self.ax.add_artist(self.px_sc)
+            else:
+                self.px_sc = px_sc
+                self.ax.add_artist(self.px_sc)
+            if hasattr(self, "north_dir"):
+                self.north_dir.remove()
+                self.north_dir = north_dir
+                self.ax.add_artist(self.north_dir)
+            else:
+                self.north_dir = north_dir
+                self.ax.add_artist(self.north_dir)
+        if change in [None, "pol"]:
+            pol_sc = AnchoredSizeBar(
+                ax.transData,
+                self.scale_vec if self.scale_vec != 0 else 2.0,
+                r"$P$= 100%",
+                4,
+                pad=0.5,
+                sep=5,
+                borderpad=0.5,
+                frameon=False,
+                size_vertical=0.005,
+                color="white",
+                fontproperties=fontprops,
+            )
+            for children in pol_sc.txt_label.get_children() + pol_sc.size_bar.get_children():
+                children.set_path_effects([withStroke(linewidth=2.0, foreground="k")])
+            if self.cut.any():
+                if hasattr(self, "pol_sc"):
+                    self.pol_sc.remove()
+                    self.pol_sc = pol_sc
+                    self.ax.add_artist(self.pol_sc)
+                else:
+                    self.pol_sc = pol_sc
+                    self.ax.add_artist(self.pol_sc)
+            else:
+                if hasattr(self, "pol_sc"):
+                    self.pol_sc.remove()
+                    del self.pol_sc
 
     def display(self, fig=None, ax=None, flux_lim=None):
         kwargs = dict([])
@@ -3462,7 +3506,7 @@ class pol_map(object):
                 fontsize=12,
                 xy=(0.01, 1.00),
                 xycoords="axes fraction",
-                path_effects=[pe.withStroke(linewidth=1.0, foreground="k")],
+                path_effects=[withStroke(linewidth=1.0, foreground="k")],
                 verticalalignment="top",
                 horizontalalignment="left",
             )
@@ -3498,7 +3542,7 @@ class pol_map(object):
                 fontsize=12,
                 xy=(0.01, 1.00),
                 xycoords="axes fraction",
-                path_effects=[pe.withStroke(linewidth=1.0, foreground="k")],
+                path_effects=[withStroke(linewidth=1.0, foreground="k")],
                 verticalalignment="top",
                 horizontalalignment="left",
             )
