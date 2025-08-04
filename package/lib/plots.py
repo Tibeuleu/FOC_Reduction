@@ -158,7 +158,7 @@ def plot_obs(data_array, headers, rectangle=None, shifts=None, savename=None, pl
         # fig.suptitle(savename)
         if savename[-4:] not in [".png", ".jpg", ".pdf"]:
             savename += ".pdf"
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
+        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None", edgecolor="None")
     plt.show()
     return 0
 
@@ -217,7 +217,7 @@ def plot_Stokes(Stokes, savename=None, plots_folder=""):
             savename += "_IQU.pdf"
         else:
             savename = savename[:-4] + "_IQU" + savename[-4:]
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None")
+        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=150, facecolor="None", edgecolor="None")
     return 0
 
 
@@ -360,7 +360,7 @@ def polarization_map(
     if fig is None:
         ratiox = max(int(stkI.shape[1] / (stkI.shape[0])), 1)
         ratioy = max(int((stkI.shape[0]) / stkI.shape[1]), 1)
-        fig = plt.figure(figsize=(7 * ratiox, 7 * ratioy), layout="constrained")
+        fig = plt.figure(figsize=(6 * ratiox, 6 * ratioy), layout="constrained")
     if ax is None:
         ax = fig.add_subplot(111, projection=wcs)
         ax.set(aspect="equal")  # , ylim=[-0.05 * stkI.shape[0], 1.05 * stkI.shape[0]])
@@ -495,19 +495,19 @@ def polarization_map(
         display = "snri"
         vmin, vmax = 0.0, np.max(SNRi[np.isfinite(SNRi)])
         if np.floor(vmax - SNRi_cut) > 0.0:
-            im = ax.imshow(SNRi, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+            im = ax.imshow(SNRi, vmin=vmax, vmax=vmin, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (SNRi <= 1.0))
             levelsSNRi = np.linspace(SNRi_cut, vmax * 0.99, min(np.floor(vmax - P_cut).astype(int), 5)).astype(int)
             print("SNRi contour levels : ", levelsSNRi)
             ax.contour(SNRi, levels=levelsSNRi, colors="grey", linewidths=0.5)
         else:
             im = ax.imshow(SNRi, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
-        fig.colorbar(im, ax=ax, aspect=50, shrink=0.50, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
+        fig.colorbar(im, ax=ax, aspect=50, shrink=0.60, pad=0.025, label=r"$I_{Stokes}/\sigma_{I}$")
     elif display.lower() in ["snr", "snrp"]:
         # Display polarization degree signal-to-noise map
         display = "snrp"
         vmin, vmax = 0.0, np.max(SNRp[np.isfinite(SNRp)])
         if np.floor(vmax - SNRp_cut) > 0.0:
-            im = ax.imshow(SNRp, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0)
+            im = ax.imshow(SNRp, vmin=vmin, vmax=vmax, aspect="equal", cmap=kwargs["cmap"], alpha=1.0 - 0.75 * (SNRp <= 1.0))
             levelsSNRp = np.linspace(SNRp_cut, vmax * 0.99, min(np.floor(vmax - SNRp_cut).astype(int), 5)).astype(int)
             print("SNRp contour levels : ", levelsSNRp)
             ax.contour(SNRp, levels=levelsSNRp, colors="grey", linewidths=0.5)
@@ -548,6 +548,8 @@ def polarization_map(
     plt.rcParams.update({"font.size": 10})
     px_size = wcs.wcs.get_cdelt()[0] * 3600.0
     px_sc = AnchoredSizeBar(ax.transData, 1.0 / px_size, "1 arcsec", 3, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color)
+    for children in px_sc.txt_label.get_children() + px_sc.size_bar.get_children():
+        children.set_path_effects([withStroke(linewidth=2.0, foreground="k")])
     north_dir = AnchoredDirectionArrows(
         ax.transAxes,
         "E",
@@ -563,15 +565,13 @@ def polarization_map(
         head_width=4.0,
         tail_width=1.0,
         angle=-Stokes[0].header["orientat"],
-        text_props={"ec": font_color, "fc": font_color, "alpha": 1, "lw": 0.5},
-        arrow_props={"ec": font_color, "fc": font_color, "alpha": 1, "lw": 0.5},
+        text_props={"color": font_color, "alpha": 1, "lw": 0.1, "path_effects": [withStroke(linewidth=2.0, foreground=bkg_color)]},
+        arrow_props={"color": font_color, "alpha": 1, "lw": 0.1, "path_effects": [withStroke(linewidth=2.0, foreground=bkg_color)]},
     )
-    for children in north_dir.box.get_children() + [px_sc.__dict__[child].get_children()[0] for child in ["txt_label", "size_bar"]]:
-        children.set_path_effects([withStroke(linewidth=2.0, foreground=bkg_color)])
     ax.add_artist(px_sc)
     ax.add_artist(north_dir)
 
-    if display.lower() in ["i", "pf", "p", "pa"] and step_vec != 0:
+    if display.lower() in ["i", "pf", "p", "pa", "snrp"] and step_vec != 0:
         if scale_vec == -1:
             poldata[np.isfinite(poldata)] = 1.0 / 2.0
             step_vec = 1
@@ -600,7 +600,7 @@ def polarization_map(
             pol_sc = AnchoredSizeBar(
                 ax.transData, scale_vec, r"$P$= 100 %", 4, pad=0.25, sep=5, borderpad=0.25, frameon=False, size_vertical=0.005, color=font_color
             )
-            for children in [pol_sc.__dict__[child].get_children()[0] for child in ["txt_label", "size_bar"]]:
+            for children in pol_sc.txt_label.get_children() + pol_sc.size_bar.get_children():
                 children.set_path_effects([withStroke(linewidth=2.0, foreground=bkg_color)])
             ax.add_artist(pol_sc)
 
@@ -644,7 +644,7 @@ def polarization_map(
     if savename is not None:
         if savename[-4:] not in [".png", ".jpg", ".pdf"]:
             savename += ".pdf"
-        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=300, facecolor="None")
+        fig.savefig(path_join(plots_folder, savename), bbox_inches="tight", dpi=300, facecolor="None", edgecolor="None")
 
     return fig, ax
 
@@ -1165,7 +1165,7 @@ class overplot_radio(align_maps):
         if savename is not None:
             if savename[-4:] not in [".png", ".jpg", ".pdf"]:
                 savename += ".pdf"
-            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None")
+            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None", edgecolor="None")
 
         self.fig_overplot.canvas.draw()
 
@@ -1376,7 +1376,7 @@ class overplot_chandra(align_maps):
         if savename is not None:
             if savename[-4:] not in [".png", ".jpg", ".pdf"]:
                 savename += ".pdf"
-            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None")
+            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None", edgecolor="None")
 
         self.fig_overplot.canvas.draw()
 
@@ -1644,7 +1644,7 @@ class overplot_pol(align_maps):
         if savename is not None:
             if savename[-4:] not in [".png", ".jpg", ".pdf"]:
                 savename += ".pdf"
-            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None")
+            self.fig_overplot.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None", edgecolor="None")
 
         self.fig_overplot.canvas.draw()
 
@@ -1821,7 +1821,7 @@ class align_pol(object):
         if savename is not None:
             if savename[-4:] not in [".png", ".jpg", ".pdf"]:
                 savename += ".pdf"
-            fig.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None")
+            fig.savefig(savename, bbox_inches="tight", dpi=150, facecolor="None", edgecolor="None")
 
         plt.show(block=True)
         return fig, ax
@@ -2829,7 +2829,7 @@ class pol_map(object):
                 # save_fig.suptitle(r"{0:s} with $SNR_{{p}} \geq$ {1:d} and $SNR_{{I}} \geq$ {2:d}".format(self.targ, int(self.SNRp), int(self.SNRi)))
                 if expression[-4:] not in [".png", ".jpg", ".pdf"]:
                     expression += ".pdf"
-                save_fig.savefig(expression, bbox_inches="tight", dpi=150, facecolor="None")
+                save_fig.savefig(expression, bbox_inches="tight", dpi=150, facecolor="None", edgecolor="None")
                 plt.close(save_fig)
                 text_save.set_val("")
             ax_snr_reset.set(visible=True)
@@ -3057,6 +3057,8 @@ class pol_map(object):
                 color="white",
                 fontproperties=fontprops,
             )
+            for children in px_sc.txt_label.get_children() + px_sc.size_bar.get_children():
+                children.set_path_effects([withStroke(linewidth=2.0, foreground="k")])
             north_dir = AnchoredDirectionArrows(
                 ax.transAxes,
                 "E",
@@ -3073,11 +3075,9 @@ class pol_map(object):
                 tail_width=1.0,
                 angle=-self.Stokes[0].header["orientat"],
                 color="white",
-                text_props={"ec": "w", "fc": "w", "alpha": 1, "lw": 0.5},
-                arrow_props={"ec": "w", "fc": "w", "alpha": 1, "lw": 0.5},
+                text_props={"ec": "w", "fc": "w", "alpha": 1, "lw": 0.5, "path_effects": [withStroke(linewidth=2.0, foreground="k")]},
+                arrow_props={"ec": "w", "fc": "w", "alpha": 1, "lw": 0.5, "path_effects": [withStroke(linewidth=2.0, foreground="k")]},
             )
-            for children in north_dir.box.get_children() + px_sc.txt_label.get_children() + px_sc.size_bar.get_children():
-                children.set_path_effects([withStroke(linewidth=2.0, foreground="k")])
             if hasattr(self, "px_sc"):
                 self.px_sc.remove()
                 self.px_sc = px_sc
