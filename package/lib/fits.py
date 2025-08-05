@@ -159,7 +159,6 @@ def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P,
     header["EXPTIME"] = (header_stokes["EXPTIME"], "Total exposure time in sec")
     header["PROPOSID"] = (header_stokes["PROPOSID"], "PEP proposal identifier for observation")
     header["TARGNAME"] = (header_stokes["TARGNAME"], "Target name")
-    header["TARGET_NAME"] = (header_stokes["TARGNAME"], "Target name")
     header["ORIENTAT"] = (header_stokes["ORIENTAT"], "Angle between North and the y-axis of the image")
     header["FILENAME"] = (filename, "ORIGINAL FILENAME")
     header["BKG_TYPE"] = (header_stokes["BKG_TYPE"], "Bkg estimation method used during reduction")
