@@ -2949,19 +2949,19 @@ class pol_map(object):
 
     @property
     def wcs(self):
-        return WCS(self.Stokes[0].header).celestial.deepcopy()
+        return WCS(self.Stokes[0].header).celestial
 
     @property
     def I(self):
-        return self.Stokes["I_STOKES"].data
+        return self.Stokes["STOKES"].data[0]
 
     @property
     def I_ERR(self):
-        return np.sqrt(self.Stokes["IQU_COV_MATRIX"].data[0, 0])
+        return np.sqrt(self.Stokes["STOKES_COV"].data[0, 0])
 
     @property
     def Q(self):
-        return self.Stokes["Q_STOKES"].data
+        return self.Stokes["STOKES"].data[1]
 
     @property
     def QN(self):
@@ -2969,7 +2969,7 @@ class pol_map(object):
 
     @property
     def Q_ERR(self):
-        return np.sqrt(self.Stokes["IQU_COV_MATRIX"].data[1, 1])
+        return np.sqrt(self.Stokes["STOKES_COV"].data[1, 1])
 
     @property
     def QN_ERR(self):
@@ -2977,7 +2977,7 @@ class pol_map(object):
 
     @property
     def U(self):
-        return self.Stokes["U_STOKES"].data
+        return self.Stokes["STOKES"].data[2]
 
     @property
     def UN(self):
@@ -2985,7 +2985,7 @@ class pol_map(object):
 
     @property
     def U_ERR(self):
-        return np.sqrt(self.Stokes["IQU_COV_MATRIX"].data[2, 2])
+        return np.sqrt(self.Stokes["STOKES_COV"].data[2, 2])
 
     @property
     def UN_ERR(self):
@@ -2993,7 +2993,7 @@ class pol_map(object):
 
     @property
     def IQU_cov(self):
-        return self.Stokes["IQU_COV_MATRIX"].data
+        return self.Stokes["STOKES_COV"].data
 
     @property
     def P(self):

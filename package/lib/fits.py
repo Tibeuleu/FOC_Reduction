@@ -105,17 +105,15 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
     return data_array, headers
 
 
-def save_Stokes(
-    I_stokes, Q_stokes, U_stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P, header_stokes, data_mask, filename, data_folder="", return_hdul=False
-):
+def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P, header_stokes, data_mask, filename, data_folder="", return_hdul=False):
     """
     Save computed polarimetry parameters to a single fits file,
     updating header accordingly.
     ----------
     Inputs:
-    I_stokes, Q_stokes, U_stokes, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P : numpy.ndarray
-        Images (2D float arrays) containing the computed polarimetric data :
-        Stokes parameters I, Q, U, Polarization degree and debieased,
+    Stokes, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P : numpy.ndarray
+        Stokes cube (3D float arrays) containing the computed polarimetric data :
+        Stokes parameters I, Q, U, V, Polarization degree and debieased,
         its error propagated and assuming Poisson noise, Polarization angle,
         its error propagated and assuming Poisson noise.
     Stokes_cov : numpy.ndarray
@@ -137,7 +135,7 @@ def save_Stokes(
     ----------
     Return:
     hdul : astropy.io.fits.hdu.hdulist.HDUList
-        HDUList containing I_stokes in the PrimaryHDU, then Q_stokes, U_stokes,
+        HDUList containing the Stokes cube in the PrimaryHDU, then
         P, s_P, PA, s_PA in this order. Headers have been updated to relevant
         informations (WCS, orientation, data_type).
         Only returned if return_hdul is True.
@@ -148,8 +146,8 @@ def save_Stokes(
     if data_mask.shape != (1, 1):
         vertex = clean_ROI(data_mask)
         shape = vertex[1::2] - vertex[0::2]
-        new_wcs.array_shape = shape
-        new_wcs.wcs.crpix = np.array(new_wcs.wcs.crpix) - vertex[0::-2]
+        new_wcs.array_shape = (4, *shape)
+        new_wcs.wcs.crpix[1:] = np.array(new_wcs.wcs.crpix[1:]) - vertex[0::-2]
 
     header = new_wcs.to_header()
     header["TELESCOP"] = (header_stokes["TELESCOP"] if "TELESCOP" in list(header_stokes.keys()) else "HST", "telescope used to acquire data")
@@ -161,6 +159,7 @@ def save_Stokes(
     header["EXPTIME"] = (header_stokes["EXPTIME"], "Total exposure time in sec")
     header["PROPOSID"] = (header_stokes["PROPOSID"], "PEP proposal identifier for observation")
     header["TARGNAME"] = (header_stokes["TARGNAME"], "Target name")
+    header["TARGET_NAME"] = (header_stokes["TARGNAME"], "Target name")
     header["ORIENTAT"] = (header_stokes["ORIENTAT"], "Angle between North and the y-axis of the image")
     header["FILENAME"] = (filename, "ORIGINAL FILENAME")
     header["BKG_TYPE"] = (header_stokes["BKG_TYPE"], "Bkg estimation method used during reduction")
@@ -174,9 +173,8 @@ def save_Stokes(
 
     # Crop Data to mask
     if data_mask.shape != (1, 1):
-        I_stokes = I_stokes[vertex[2] : vertex[3], vertex[0] : vertex[1]]
-        Q_stokes = Q_stokes[vertex[2] : vertex[3], vertex[0] : vertex[1]]
-        U_stokes = U_stokes[vertex[2] : vertex[3], vertex[0] : vertex[1]]
+        Stokes = Stokes[:, vertex[2] : vertex[3], vertex[0] : vertex[1]]
+        Stokes_cov = Stokes_cov[:, :, vertex[2] : vertex[3], vertex[0] : vertex[1]]
         P = P[vertex[2] : vertex[3], vertex[0] : vertex[1]]
         debiased_P = debiased_P[vertex[2] : vertex[3], vertex[0] : vertex[1]]
         s_P = s_P[vertex[2] : vertex[3], vertex[0] : vertex[1]]
@@ -184,14 +182,6 @@ def save_Stokes(
         PA = PA[vertex[2] : vertex[3], vertex[0] : vertex[1]]
         s_PA = s_PA[vertex[2] : vertex[3], vertex[0] : vertex[1]]
         s_PA_P = s_PA_P[vertex[2] : vertex[3], vertex[0] : vertex[1]]
-
-        new_Stokes_cov = np.zeros((*Stokes_cov.shape[:-2], *shape[::-1]))
-        for i in range(3):
-            for j in range(3):
-                Stokes_cov[i, j][(1 - data_mask).astype(bool)] = 0.0
-                new_Stokes_cov[i, j] = Stokes_cov[i, j][vertex[2] : vertex[3], vertex[0] : vertex[1]]
-        Stokes_cov = new_Stokes_cov
-
         data_mask = data_mask[vertex[2] : vertex[3], vertex[0] : vertex[1]]
     data_mask = data_mask.astype(float, copy=False)
 
@@ -199,17 +189,15 @@ def save_Stokes(
     hdul = fits.HDUList([])
 
     # Add I_stokes as PrimaryHDU
-    header["datatype"] = ("I_stokes", "type of data stored in the HDU")
-    I_stokes[(1 - data_mask).astype(bool)] = 0.0
-    primary_hdu = fits.PrimaryHDU(data=I_stokes, header=header)
-    primary_hdu.name = "I_stokes"
+    header["datatype"] = ("Stokes", "type of data stored in the HDU")
+    Stokes[np.broadcast_to((1 - data_mask).astype(bool), Stokes.shape)] = 0.0
+    primary_hdu = fits.PrimaryHDU(data=Stokes, header=header)
+    primary_hdu.name = "Stokes"
     hdul.append(primary_hdu)
 
-    # Add Q, U, Stokes_cov, P, s_P, PA, s_PA to the HDUList
+    # Add Stokes_cov, P, s_P, PA, s_PA to the HDUList
     for data, name in [
-        [Q_stokes, "Q_stokes"],
-        [U_stokes, "U_stokes"],
-        [Stokes_cov, "IQU_cov_matrix"],
+        [Stokes_cov, "STOKES_COV"],
         [P, "Pol_deg"],
         [debiased_P, "Pol_deg_debiased"],
         [s_P, "Pol_deg_err"],
@@ -221,7 +209,9 @@ def save_Stokes(
     ]:
         hdu_header = header.copy()
         hdu_header["datatype"] = name
-        if not name == "IQU_cov_matrix":
+        if name == "STOKES_COV":
+            data[np.broadcast_to((1 - data_mask).astype(bool), data.shape)] = 0.0
+        else:
             data[(1 - data_mask).astype(bool)] = 0.0
         hdu = fits.ImageHDU(data=data, header=hdu_header)
         hdu.name = name
