@@ -291,7 +291,7 @@ def polarization_map(
     stkI = Stokes["I_stokes"].data.copy()
     stkQ = Stokes["Q_stokes"].data.copy()
     stkU = Stokes["U_stokes"].data.copy()
-    stk_cov = Stokes["IQU_cov_matrix"].data.copy()
+    stk_cov = Stokes["IQU_COV_MATRIX"].data.copy()
     pol = Stokes["Pol_deg_debiased"].data.copy()
     pol_err = Stokes["Pol_deg_err"].data.copy()
     pang = Stokes["Pol_ang"].data.copy()
@@ -1900,7 +1900,7 @@ class crop_map(object):
         self.header = deepcopy(self.hdul[0].header)
         self.wcs = WCS(self.header).celestial.deepcopy()
 
-        self.data = deepcopy(self.hdul[0].data)
+        self.data = deepcopy(self.hdul[0].data[0])
         try:
             self.map_convert = self.header["photflam"]
         except KeyError:
@@ -2101,31 +2101,29 @@ class crop_Stokes(crop_map):
             self.hdul_crop = deepcopy(hdul)
             self.data_crop = deepcopy(data)
             # crpix = np.array(wcs.wcs.crpix)
-            self.wcs_crop = wcs.deepcopy()
-            self.wcs_crop.array_shape = shape
+            self.wcs_crop = WCS(hdul[0]).deepcopy()
+            self.wcs_crop.array_shape = (4, *shape)[::-1]
             if self.crpix_in_RS:
-                self.wcs_crop.wcs.crpix = np.array(self.wcs_crop.wcs.crpix) - self.RSextent[::2]
+                self.wcs_crop.wcs.crpix[1:] = np.array(self.wcs_crop.wcs.crpix[1:]) - self.RSextent[::2]
             else:
-                self.wcs_crop.wcs.crval = wcs.wcs_pix2world([self.RScenter], 1)[0]
-                self.wcs_crop.wcs.crpix = self.RScenter - self.RSextent[::2]
+                self.wcs_crop.wcs.crval[1:] = wcs.celestial.wcs_pix2world([self.RScenter], 1)[0]
+                self.wcs_crop.wcs.crpix[1:] = self.RScenter - self.RSextent[::2]
 
             # Crop dataset
             for dataset in self.hdul_crop:
-                if dataset.header["datatype"] == "IQU_cov_matrix":
-                    stokes_cov = np.zeros((3, 3, shape[1], shape[0]))
-                    for i in range(3):
-                        for j in range(3):
-                            stokes_cov[i, j] = deepcopy(dataset.data[i, j][vertex[2] : vertex[3], vertex[0] : vertex[1]])
-                    dataset.data = stokes_cov
+                if dataset.header["datatype"] == "STOKES":
+                    dataset.data = deepcopy(dataset.data[:, vertex[2] : vertex[3], vertex[0] : vertex[1]])
+                elif dataset.header["datatype"] == "STOKES_COV":
+                    dataset.data = deepcopy(dataset.data[:, :, vertex[2] : vertex[3], vertex[0] : vertex[1]])
                 else:
                     dataset.data = deepcopy(dataset.data[vertex[2] : vertex[3], vertex[0] : vertex[1]])
                 dataset.header.update(self.wcs_crop.to_header())
 
-            self.data_crop = self.hdul_crop[0].data
+            self.data_crop = self.hdul_crop[0].data[0]
             self.rect_selector.clear()
             if not self.embedded:
-                self.ax.reset_wcs(self.wcs_crop)
-                self.display(data=self.data_crop, wcs=self.wcs_crop)
+                self.ax.reset_wcs(self.wcs_crop.celestial)
+                self.display(data=self.data_crop, wcs=self.wcs_crop.celestial)
 
                 xlim, ylim = self.RSextent[1::2] - self.RSextent[0::2]
                 self.ax.set_xlim(0, xlim)
@@ -2136,16 +2134,14 @@ class crop_Stokes(crop_map):
             if self.fig.canvas.manager.toolbar.mode == "":
                 self.rect_selector = RectangleSelector(self.ax, self.onselect_crop, button=[1])
         # Update integrated values
-        mask = np.logical_and(self.hdul_crop["data_mask"].data.astype(bool), self.hdul_crop[0].data > 0)
-        I_diluted = self.hdul_crop["i_stokes"].data[mask].sum()
-        Q_diluted = self.hdul_crop["q_stokes"].data[mask].sum()
-        U_diluted = self.hdul_crop["u_stokes"].data[mask].sum()
-        I_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[0, 0][mask]))
-        Q_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[1, 1][mask]))
-        U_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[2, 2][mask]))
-        IQ_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[0, 1][mask] ** 2))
-        IU_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[0, 2][mask] ** 2))
-        QU_diluted_err = np.sqrt(np.sum(self.hdul_crop["iqu_cov_matrix"].data[1, 2][mask] ** 2))
+        mask = np.logical_and(self.hdul_crop["data_mask"].data.astype(bool), self.hdul_crop[0].data[0] > 0)
+        I_diluted, Q_diluted, U_diluted = (self.hdul_crop["STOKES"].data[:3] * np.broadcast_to(mask, (3, *mask.shape))).sum(axis=(1, 2))
+        I_diluted_err = np.sqrt(np.sum(self.hdul_crop["STOKES_COV"].data[0, 0][mask]))
+        Q_diluted_err = np.sqrt(np.sum(self.hdul_crop["STOKES_COV"].data[1, 1][mask]))
+        U_diluted_err = np.sqrt(np.sum(self.hdul_crop["STOKES_COV"].data[2, 2][mask]))
+        IQ_diluted_err = np.sqrt(np.sum(self.hdul_crop["STOKES_COV"].data[0, 1][mask] ** 2))
+        IU_diluted_err = np.sqrt(np.sum(self.hdul_crop["STOKES_COV"].data[0, 2][mask] ** 2))
+        QU_diluted_err = np.sqrt(np.sum(self.hdul_crop["STOKES_COV"].data[1, 2][mask] ** 2))
 
         P_diluted = np.sqrt(Q_diluted**2 + U_diluted**2) / I_diluted
         P_diluted_err = (1.0 / I_diluted) * np.sqrt(

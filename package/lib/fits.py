@@ -189,7 +189,7 @@ def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P,
     hdul = fits.HDUList([])
 
     # Add I_stokes as PrimaryHDU
-    header["datatype"] = ("Stokes", "type of data stored in the HDU")
+    header["datatype"] = ("STOKES", "type of data stored in the HDU")
     Stokes[np.broadcast_to((1 - data_mask).astype(bool), Stokes.shape)] = 0.0
     primary_hdu = fits.PrimaryHDU(data=Stokes, header=header)
     primary_hdu.name = "Stokes"
