@@ -46,7 +46,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy import log
 from astropy.wcs import WCS
-from astropy.wcs.utils import add_stokes_axis_to_wcs
 from matplotlib.colors import LogNorm
 from matplotlib.patches import Rectangle
 from scipy.ndimage import rotate as sc_rotate
@@ -58,7 +57,7 @@ from .convex_hull import image_hull
 from .cross_correlation import phase_cross_correlation
 from .deconvolve import deconvolve_im, gaussian2d, gaussian_psf, zeropad
 from .plots import plot_obs
-from .utils import princ_angle
+from .utils import princ_angle, add_stokes_axis_to_header
 
 log.setLevel("ERROR")
 
@@ -1415,11 +1414,7 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
     Stokes[np.isnan(Stokes)] = 0.0
     Stokes[1:][np.broadcast_to(Stokes[0] == 0.0, Stokes[1:].shape)] = 0.0
     Stokes_cov[np.isnan(Stokes_cov)] = fmax
-    wcs_Stokes = add_stokes_axis_to_wcs(WCS(header_stokes), 0)
-    wcs_Stokes.array_shape = (4, *Stokes.shape[1:])[::-1]
-    header_stokes["NAXIS1"], header_stokes["NAXIS2"], header_stokes["NAXIS3"] = wcs_Stokes.array_shape[::-1]
-    for key, val in list(wcs_Stokes.to_header().items()) + list(zip(["PC1_1", "PC1_2", "PC1_3", "PC2_1", "PC3_1", "CUNIT1"], [1, 0, 0, 0, 0, "STOKES"])):
-        header_stokes[key] = val
+    header_stokes = add_stokes_axis_to_header(header_stokes, 0)
 
     if integrate:
         # Compute integrated values for P, PA before any rotation

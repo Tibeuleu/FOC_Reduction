@@ -242,3 +242,82 @@ def wcs_PA(PC, cdelt):
     rot2 = np.pi / 2.0 - np.arctan2(abs(cdelt[0]) * PC[0, 1], cdelt[1] * PC[1, 1])
     orient = 0.5 * (rot + rot2) * 180.0 / np.pi
     return orient
+
+
+def add_stokes_axis_to_header(header, ind=0):
+    """
+    Add a new Stokes axis to the WCS cards in the header.
+    ----------
+    Inputs:
+    header : astropy.io.fits.header.Header
+        The header in which the WCS to work on is saved.
+    ind : int, optional
+        Index of the WCS to insert the new Stokes axis in front of.
+        To add at the end, do add_before_ind = wcs.wcs.naxis
+        The beginning is at position 0.
+        Default to 0.
+    ----------
+    Returns:
+    new_head : astropy.io.fits.header.Header
+        A new Header instance with an additional Stokes axis
+    """
+    from astropy.wcs import WCS
+    from astropy.wcs.utils import add_stokes_axis_to_wcs
+
+    wcs = WCS(header).deepcopy()
+    wcs_Stokes = add_stokes_axis_to_wcs(wcs, ind).deepcopy()
+    wcs_Stokes.array_shape = (*wcs.array_shape[ind:], 4, *wcs.array_shape[:ind]) if ind < wcs.wcs.naxis else (4, *wcs.array_shape)
+    new_head = header.copy()
+    new_head["NAXIS"] = wcs_Stokes.wcs.naxis
+    for key in wcs.to_header().keys():
+        if key not in wcs_Stokes.to_header().keys():
+            del new_head[key]
+    for key, val in (
+        list(wcs_Stokes.to_header().items())
+        + [("NAXIS%d" % (i + 1), k) for i, k in enumerate(wcs_Stokes.array_shape[::-1])]
+        + [("CUNIT%d" % (ind + 1), "STOKES")]
+    ):
+        if key not in header.keys() and key[:-1] + str(wcs.wcs.naxis) in header.keys():
+            new_head.insert(key[:-1] + str(wcs.wcs.naxis), (key, val), after=int(key[-1]) < wcs.wcs.naxis)
+        elif key not in header.keys() and key[:2] + str(wcs.wcs.naxis) + key[2:-1] + str(wcs.wcs.naxis) in header.keys():
+            new_head.insert(key[:2] + str(wcs.wcs.naxis) + key[2:-1] + str(wcs.wcs.naxis), (key, val), after=int(key[-1]) < wcs.wcs.naxis)
+        else:
+            new_head[key] = val
+    return new_head
+
+
+def remove_stokes_axis_from_header(header):
+    """
+    Remove a Stokes axis to the WCS cards in the header.
+    ----------
+    Inputs:
+    header : astropy.io.fits.header.Header
+        The header in which the WCS to work on is saved.
+    ----------
+    Returns:
+    new_head : astropy.io.fits.header.Header
+        A new Header instance with only a celestial WCS.
+    """
+    from astropy.wcs import WCS
+
+    wcs = WCS(header).deepcopy()
+    new_wcs = WCS(header).celestial.deepcopy()
+    new_head = header.copy()
+    del new_head["NAXIS%d" % (new_wcs.wcs.naxis + 1)]
+    new_head["NAXIS"] = new_wcs.wcs.naxis
+    for i, k in enumerate(new_wcs.array_shape[::-1]):
+        new_head["NAXIS%d" % (i + 1)] = k
+    for key in list(WCS(header).to_header().keys()) + list(
+        np.unique([["PC%d_%d" % (i + 1, j + 1) for i in range(wcs.wcs.naxis)] for j in range(wcs.wcs.naxis)])
+    ):
+        if key in new_head.keys() and key not in new_wcs.to_header().keys():
+            del new_head[key]
+    for key, val in new_wcs.to_header().items():
+        if key not in new_head.keys() and key[:-1] + str(wcs.wcs.naxis) in new_head.keys():
+            new_head.insert(key[:-1] + str(wcs.wcs.naxis), (key, val), after=True)
+        elif key not in new_head.keys() and key[:2] + str(wcs.wcs.naxis) + key[2:-1] + str(wcs.wcs.naxis) in new_head.keys():
+            new_head.insert(key[:2] + str(wcs.wcs.naxis) + key[2:-1] + str(wcs.wcs.naxis), (key, val), after=True)
+        else:
+            new_head[key] = val
+
+    return new_head
