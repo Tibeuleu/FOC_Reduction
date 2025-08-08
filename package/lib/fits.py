@@ -144,8 +144,13 @@ def save_Stokes(
         Only returned if return_hdul is True.
     """
     # Create new WCS object given the modified images
+    wcs = WCS(header_stokes).deepcopy()
     new_wcs = WCS(header_stokes).celestial.deepcopy()
-    header = remove_stokes_axis_from_header(header_stokes).copy() if header_stokes["NAXIS"] > 2 else header_stokes.copy()
+    header = wcs.to_header().copy()
+    header["NAXIS"] = header_stokes["NAXIS"]
+    for i in range(wcs.wcs.naxis):
+        header["NAXIS%d" % (i + 1)] = header_stokes["NAXIS%d" % (i + 1)]
+    header = remove_stokes_axis_from_header(header).copy() if header_stokes["NAXIS"] > 2 else header
 
     if data_mask.shape != (1, 1):
         vertex = clean_ROI(data_mask)
@@ -155,8 +160,8 @@ def save_Stokes(
     for key, val in list(new_wcs.to_header().items()) + [("NAXIS", 2), ("NAXIS1", new_wcs.array_shape[1]), ("NAXIS2", new_wcs.array_shape[0])]:
         header[key] = val
 
-    header["TELESCOP"] = (header_stokes["TELESCOP"] if "TELESCOP" in list(header_stokes.keys()) else "HST", "telescope used to acquire data")
-    header["INSTRUME"] = (header_stokes["INSTRUME"] if "INSTRUME" in list(header_stokes.keys()) else "FOC", "identifier for instrument used to acuire data")
+    header["TELESCOP"] = (header_stokes["TELESCOP"] if "TELESCOP" in list(header_stokes.keys()) else "HST", "Telescope used to acquire data")
+    header["INSTRUME"] = (header_stokes["INSTRUME"] if "INSTRUME" in list(header_stokes.keys()) else "FOC", "identifier for instrument used to acquire data")
     header["PHOTPLAM"] = (header_stokes["PHOTPLAM"], "Pivot Wavelength")
     header["PHOTBW"] = (header_stokes["PHOTBW"], "RMS Bandwidth of the Filter and Detector")
     header["PHOTFLAM"] = (header_stokes["PHOTFLAM"], "Inverse Sensitivity in DN/sec/cm**2/Angst")

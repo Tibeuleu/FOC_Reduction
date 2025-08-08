@@ -303,7 +303,8 @@ def remove_stokes_axis_from_header(header):
     wcs = WCS(header).deepcopy()
     new_wcs = WCS(header).celestial.deepcopy()
     new_head = header.copy()
-    del new_head["NAXIS%d" % (new_wcs.wcs.naxis + 1)]
+    if "NAXIS%d" % (new_wcs.wcs.naxis + 1) in new_head.keys():
+        del new_head["NAXIS%d" % (new_wcs.wcs.naxis + 1)]
     new_head["NAXIS"] = new_wcs.wcs.naxis
     for i, k in enumerate(new_wcs.array_shape[::-1]):
         new_head["NAXIS%d" % (i + 1)] = k
