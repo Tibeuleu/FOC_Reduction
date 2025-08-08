@@ -105,7 +105,9 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
     return data_array, headers
 
 
-def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P, header_stokes, data_mask, filename, data_folder="", return_hdul=False):
+def save_Stokes(
+    Stokes, Stokes_cov, Stokes_cov_stat, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P, header_stokes, data_mask, filename, data_folder="", return_hdul=False
+):
     """
     Save computed polarimetry parameters to a single fits file,
     updating header accordingly.
@@ -116,8 +118,9 @@ def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P,
         Stokes parameters I, Q, U, V, Polarization degree and debieased,
         its error propagated and assuming Poisson noise, Polarization angle,
         its error propagated and assuming Poisson noise.
-    Stokes_cov : numpy.ndarray
-        Covariance matrix of the Stokes parameters I, Q, U.
+    Stokes_cov, Stokes_cov_stat : numpy.ndarray
+        Covariance matrix of the Stokes parameters I, Q, U, V and its statistical
+        uncertainties part.
     headers : header list
         Header of reference some keywords will be copied from (CRVAL, CDELT,
         INSTRUME, PROPOSID, TARGNAME, ORIENTAT, EXPTOT).
@@ -135,14 +138,14 @@ def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P,
     ----------
     Return:
     hdul : astropy.io.fits.hdu.hdulist.HDUList
-        HDUList containing the Stokes cube in the PrimaryHDU, then
-        P, s_P, PA, s_PA in this order. Headers have been updated to relevant
-        informations (WCS, orientation, data_type).
+        HDUList containing the Stokes cube in the PrimaryHDU, then Stokes_cov,
+        Stokes_cov_stat, P, s_P, PA, s_PA in this order. Headers have been updated
+        to relevant informations (WCS, orientation, data_type).
         Only returned if return_hdul is True.
     """
     # Create new WCS object given the modified images
     new_wcs = WCS(header_stokes).celestial.deepcopy()
-    header = remove_stokes_axis_from_header(header_stokes).copy()
+    header = remove_stokes_axis_from_header(header_stokes).copy() if header_stokes["NAXIS"] > 2 else header_stokes.copy()
 
     if data_mask.shape != (1, 1):
         vertex = clean_ROI(data_mask)
@@ -176,6 +179,7 @@ def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P,
     if data_mask.shape != (1, 1):
         Stokes = Stokes[:, vertex[2] : vertex[3], vertex[0] : vertex[1]]
         Stokes_cov = Stokes_cov[:, :, vertex[2] : vertex[3], vertex[0] : vertex[1]]
+        Stokes_cov_stat = Stokes_cov_stat[:, :, vertex[2] : vertex[3], vertex[0] : vertex[1]]
         P = P[vertex[2] : vertex[3], vertex[0] : vertex[1]]
         debiased_P = debiased_P[vertex[2] : vertex[3], vertex[0] : vertex[1]]
         s_P = s_P[vertex[2] : vertex[3], vertex[0] : vertex[1]]
@@ -192,7 +196,7 @@ def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P,
     # Add I_stokes as PrimaryHDU
     header["datatype"] = ("STOKES", "type of data stored in the HDU")
     Stokes[np.broadcast_to((1 - data_mask).astype(bool), Stokes.shape)] = 0.0
-    hdu_head = add_stokes_axis_to_header(header, 2)
+    hdu_head = add_stokes_axis_to_header(header, 0)
     primary_hdu = fits.PrimaryHDU(data=Stokes, header=hdu_head)
     primary_hdu.name = "STOKES"
     hdul.append(primary_hdu)
@@ -200,6 +204,7 @@ def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P,
     # Add Stokes_cov, P, s_P, PA, s_PA to the HDUList
     for data, name in [
         [Stokes_cov, "STOKES_COV"],
+        [Stokes_cov_stat, "STOKES_COV_STAT"],
         [P, "Pol_deg"],
         [debiased_P, "Pol_deg_debiased"],
         [s_P, "Pol_deg_err"],
@@ -211,9 +216,9 @@ def save_Stokes(Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P,
     ]:
         hdu_head = header.copy()
         hdu_head["datatype"] = name
-        if name == "STOKES_COV":
-            hdu_head = add_stokes_axis_to_header(hdu_head, 2)
-            hdu_head = add_stokes_axis_to_header(hdu_head, 3)
+        if name[:10] == "STOKES_COV":
+            hdu_head = add_stokes_axis_to_header(hdu_head, 0)
+            hdu_head = add_stokes_axis_to_header(hdu_head, 0)
             data[np.broadcast_to((1 - data_mask).astype(bool), data.shape)] = 0.0
         else:
             data[(1 - data_mask).astype(bool)] = 0.0

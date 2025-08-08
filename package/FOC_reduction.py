@@ -41,7 +41,7 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
 
     # Background estimation
     error_sub_type = "scott"  # sqrt, sturges, rice, scott, freedman-diaconis (default) or shape (example (51, 51))
-    subtract_error = 0.50
+    subtract_error = 0.80
     display_bkg = False
 
     # Data binning
@@ -203,24 +203,38 @@ def main(target=None, proposal_id=None, infiles=None, output_dir="./data", crop=
     # FWHM of FOC have been estimated at about 0.03" across 1500-5000 Angstrom band, which is about 2 detector pixels wide
     # see Jedrzejewski, R.; Nota, A.; Hack, W. J., A Comparison Between FOC and WFPC2
     # Bibcode : 1995chst.conf...10J
-    Stokes, Stokes_cov, header_stokes, s_IQU_stat = proj_red.compute_Stokes(
+    Stokes, Stokes_cov, header_stokes, Stokes_cov_stat = proj_red.compute_Stokes(
         data_array, error_array, data_mask, headers, FWHM=smoothing_FWHM, scale=smoothing_scale, smoothing=smoothing_function, transmitcorr=transmitcorr
     )
     # Step 3:
     # Rotate images to have North up
     if rotate_North:
-        Stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat = proj_red.rotate_Stokes(
-            Stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat=s_IQU_stat, SNRi_cut=None
+        Stokes, Stokes_cov, data_mask, header_stokes, Stokes_cov_stat = proj_red.rotate_Stokes(
+            Stokes, Stokes_cov, data_mask, header_stokes, Stokes_cov_stat=Stokes_cov_stat, SNRi_cut=None
         )
 
     # Compute polarimetric parameters (polarization degree and angle).
-    P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P = proj_red.compute_pol(Stokes, Stokes_cov, header_stokes, s_IQU_stat=s_IQU_stat)
+    P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P = proj_red.compute_pol(Stokes, Stokes_cov, header_stokes, Stokes_cov_stat=Stokes_cov_stat)
 
     # Step 4:
     # Save image to FITS.
     figname = "_".join([figname, figtype]) if figtype != "" else figname
     Stokes_hdul = proj_fits.save_Stokes(
-        Stokes, Stokes_cov, P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P, header_stokes, data_mask, figname, data_folder=data_folder, return_hdul=True
+        Stokes,
+        Stokes_cov,
+        Stokes_cov_stat,
+        P,
+        debiased_P,
+        s_P,
+        s_P_P,
+        PA,
+        s_PA,
+        s_PA_P,
+        header_stokes,
+        data_mask,
+        figname,
+        data_folder=data_folder,
+        return_hdul=True,
     )
     outfiles.append("/".join([data_folder, Stokes_hdul[0].header["FILENAME"] + ".fits"]))
 

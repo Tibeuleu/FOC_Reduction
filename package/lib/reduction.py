@@ -1301,12 +1301,12 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
 
         # Statistical error: Poisson noise is assumed
         sigma_flux = np.array([np.sqrt(flux / head["exptime"]) for flux, head in zip(pol_flux, pol_headers)])
-        s_IQU_stat = np.zeros(Stokes_cov.shape)
+        Stokes_cov_stat = np.zeros(Stokes_cov.shape)
         for i in range(3):
-            s_IQU_stat[i, i] = np.sum([coeff_stokes[i, k] ** 2 * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
+            Stokes_cov_stat[i, i] = np.sum([coeff_stokes[i, k] ** 2 * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
             for j in [k for k in range(3) if k > i]:
-                s_IQU_stat[i, j] = np.sum([coeff_stokes[i, k] * coeff_stokes[j, k] * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
-                s_IQU_stat[j, i] = np.sum([coeff_stokes[i, k] * coeff_stokes[j, k] * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
+                Stokes_cov_stat[i, j] = np.sum([coeff_stokes[i, k] * coeff_stokes[j, k] * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
+                Stokes_cov_stat[j, i] = np.sum([coeff_stokes[i, k] * coeff_stokes[j, k] * sigma_flux[k] ** 2 for k in range(len(sigma_flux))], axis=0)
 
         # Compute the derivative of each Stokes parameter with respect to the polarizer orientation
         dIQU_dtheta = np.zeros(Stokes_cov.shape)
@@ -1359,19 +1359,19 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
             )
 
         # Compute the uncertainty associated with the polarizers' orientation (see Kishimoto 1999)
-        s_IQU_axis = np.zeros(Stokes_cov.shape)
+        Stokes_cov_axis = np.zeros(Stokes_cov.shape)
         for i in range(3):
-            s_IQU_axis[i, i] = np.sum([dIQU_dtheta[i, k] ** 2 * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0)
+            Stokes_cov_axis[i, i] = np.sum([dIQU_dtheta[i, k] ** 2 * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0)
             for j in [k for k in range(3) if k > i]:
-                s_IQU_axis[i, j] = np.sum(
+                Stokes_cov_axis[i, j] = np.sum(
                     [dIQU_dtheta[i, k] * dIQU_dtheta[j, k] * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0
                 )
-                s_IQU_axis[j, i] = np.sum(
+                Stokes_cov_axis[j, i] = np.sum(
                     [dIQU_dtheta[i, k] * dIQU_dtheta[j, k] * globals()["sigma_theta"][k] ** 2 for k in range(len(globals()["sigma_theta"]))], axis=0
                 )
 
         # Add quadratically the uncertainty to the Stokes covariance matrix
-        Stokes_cov += s_IQU_axis + s_IQU_stat
+        Stokes_cov += Stokes_cov_axis + Stokes_cov_stat
 
         # Save values to single header
         header_stokes = pol_headers[0]
@@ -1445,10 +1445,10 @@ def compute_Stokes(data_array, error_array, data_mask, headers, FWHM=None, scale
         header_stokes["PA_int"] = (PA_diluted, "Integrated polarization angle")
         header_stokes["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
 
-    return Stokes, Stokes_cov, header_stokes, s_IQU_stat
+    return Stokes, Stokes_cov, header_stokes, Stokes_cov_stat
 
 
-def compute_pol(Stokes, Stokes_cov, header_stokes, s_IQU_stat=None):
+def compute_pol(Stokes, Stokes_cov, header_stokes, Stokes_cov_stat=None):
     """
     Compute the polarization degree (in %) and angle (in deg) and their
     respective errors from given Stokes parameters.
@@ -1524,7 +1524,7 @@ def compute_pol(Stokes, Stokes_cov, header_stokes, s_IQU_stat=None):
     s_P_P = np.ones(Stokes[0].shape) * fmax
     s_PA_P = np.ones(Stokes[0].shape) * fmax
     maskP = np.logical_and(mask, P > 0.0)
-    if s_IQU_stat is not None:
+    if Stokes_cov_stat is not None:
         # If IQU covariance matrix containing only statistical error is given propagate to P and PA
         # Catch Invalid value in sqrt when diagonal terms are big
         with warnings.catch_warnings(record=True) as _:
@@ -1532,13 +1532,15 @@ def compute_pol(Stokes, Stokes_cov, header_stokes, s_IQU_stat=None):
                 P[maskP]
                 / Stokes[0][maskP]
                 * np.sqrt(
-                    s_IQU_stat[0, 0][maskP]
-                    - 2.0 / (Stokes[0][maskP] * P[maskP] ** 2) * (Stokes[1][maskP] * s_IQU_stat[0, 1][maskP] + Stokes[2][maskP] * s_IQU_stat[0, 2][maskP])
+                    Stokes_cov_stat[0, 0][maskP]
+                    - 2.0
+                    / (Stokes[0][maskP] * P[maskP] ** 2)
+                    * (Stokes[1][maskP] * Stokes_cov_stat[0, 1][maskP] + Stokes[2][maskP] * Stokes_cov_stat[0, 2][maskP])
                     + 1.0
                     / (Stokes[0][maskP] ** 2 * P[maskP] ** 4)
                     * (
-                        Stokes[1][maskP] ** 2 * s_IQU_stat[1, 1][maskP]
-                        + Stokes[2][maskP] ** 2 * s_IQU_stat[2, 2][maskP] * Stokes[1][maskP] * Stokes[2][maskP] * s_IQU_stat[1, 2][maskP]
+                        Stokes[1][maskP] ** 2 * Stokes_cov_stat[1, 1][maskP]
+                        + Stokes[2][maskP] ** 2 * Stokes_cov_stat[2, 2][maskP] * Stokes[1][maskP] * Stokes[2][maskP] * Stokes_cov_stat[1, 2][maskP]
                     )
                 )
             )
@@ -1546,9 +1548,9 @@ def compute_pol(Stokes, Stokes_cov, header_stokes, s_IQU_stat=None):
                 90.0
                 / (np.pi * Stokes[0][maskP] ** 2 * P[maskP] ** 2)
                 * (
-                    Stokes[1][maskP] ** 2 * s_IQU_stat[2, 2][maskP]
-                    + Stokes[2][maskP] * s_IQU_stat[1, 1][maskP]
-                    - 2.0 * Stokes[1][maskP] * Stokes[2][maskP] * s_IQU_stat[1, 2][maskP]
+                    Stokes[1][maskP] ** 2 * Stokes_cov_stat[2, 2][maskP]
+                    + Stokes[2][maskP] * Stokes_cov_stat[1, 1][maskP]
+                    - 2.0 * Stokes[1][maskP] * Stokes[2][maskP] * Stokes_cov_stat[1, 2][maskP]
                 )
             )
     else:
@@ -1576,7 +1578,7 @@ def compute_pol(Stokes, Stokes_cov, header_stokes, s_IQU_stat=None):
     return P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P
 
 
-def rotate_Stokes(Stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat=None, SNRi_cut=None):
+def rotate_Stokes(Stokes, Stokes_cov, data_mask, header_stokes, Stokes_cov_stat=None, SNRi_cut=None):
     """
     Use scipy.ndimage.rotate to rotate I_stokes to an angle, and a rotation
     matrix to rotate Q, U of a given angle in degrees and update header
@@ -1642,16 +1644,16 @@ def rotate_Stokes(Stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat=None,
             new_Stokes[:3, i, j] = np.dot(mrot, new_Stokes[:3, i, j])
             new_Stokes_cov[:3, :3, i, j] = np.dot(mrot, np.dot(new_Stokes_cov[:3, :3, i, j], mrot.T))
 
-    if s_IQU_stat is not None:
-        s_IQU_stat = zeropad(s_IQU_stat, [*s_IQU_stat.shape[:-2], *shape])
-        new_s_IQU_stat = np.zeros((*s_IQU_stat.shape[:-2], *shape))
+    if Stokes_cov_stat is not None:
+        Stokes_cov_stat = zeropad(Stokes_cov_stat, [*Stokes_cov_stat.shape[:-2], *shape])
+        new_Stokes_cov_stat = np.zeros((*Stokes_cov_stat.shape[:-2], *shape))
         for i in range(3):
             for j in range(3):
-                new_s_IQU_stat[i, j] = sc_rotate(s_IQU_stat[i, j], ang, order=1, reshape=False, cval=0.0)
-            new_s_IQU_stat[i, i] = np.abs(new_s_IQU_stat[i, i])
+                new_Stokes_cov_stat[i, j] = sc_rotate(Stokes_cov_stat[i, j], ang, order=1, reshape=False, cval=0.0)
+            new_Stokes_cov_stat[i, i] = np.abs(new_Stokes_cov_stat[i, i])
         for i in range(shape[0]):
             for j in range(shape[1]):
-                new_s_IQU_stat[:3, :3, i, j] = np.dot(mrot, np.dot(new_s_IQU_stat[:3, :3, i, j], mrot.T))
+                new_Stokes_cov_stat[:3, :3, i, j] = np.dot(mrot, np.dot(new_Stokes_cov_stat[:3, :3, i, j], mrot.T))
 
     # Update headers to new angle
     mrot = np.array([[np.cos(-alpha), -np.sin(-alpha)], [np.sin(-alpha), np.cos(-alpha)]])
@@ -1701,8 +1703,8 @@ def rotate_Stokes(Stokes, Stokes_cov, data_mask, header_stokes, s_IQU_stat=None,
     new_header_stokes["PA_int"] = (PA_diluted, "Integrated polarization angle")
     new_header_stokes["sPA_int"] = (np.ceil(PA_diluted_err * 10.0) / 10.0, "Integrated polarization angle error")
 
-    if s_IQU_stat is not None:
-        return new_Stokes, new_Stokes_cov, new_data_mask, new_header_stokes, new_s_IQU_stat
+    if Stokes_cov_stat is not None:
+        return new_Stokes, new_Stokes_cov, new_data_mask, new_header_stokes, new_Stokes_cov_stat
     else:
         return new_Stokes, new_Stokes_cov, new_data_mask, new_header_stokes
 
