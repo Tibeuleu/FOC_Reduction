@@ -10,7 +10,7 @@ from astropy.io import fits
 from lib.plots import overplot_pol, overplot_radio
 from matplotlib.colors import LogNorm
 
-Stokes_UV = fits.open("./data/IC5063/5918/IC5063_FOC_b0.10arcsec_c0.20arcsec.fits")
+Stokes_UV = fits.open("./data/IC5063/5918/IC5063_5918_F502M_FOC_b0.10arcsec_c0.15arcsec.fits")
 # Stokes_18GHz = fits.open("./data/IC5063/radio/IC5063_18GHz.fits")
 # Stokes_24GHz = fits.open("./data/IC5063/radio/IC5063_24GHz.fits")
 # Stokes_103GHz = fits.open("./data/IC5063/radio/IC5063_103GHz.fits")
@@ -47,10 +47,12 @@ Stokes_IR = fits.open("./data/IC5063/IR/u2e65g01t_c0f_rot.fits")
 
 G = overplot_pol(Stokes_UV, Stokes_IR, cmap="inferno")
 G.plot(
-    P_cut=0.99,
-    SNRi_cut=1.0,
+    P_cut=3,
+    SNRi_cut=10,
     savename="./plots/IC5063/IR_overplot.pdf",
-    scale_vec=None,
+    scale_vec=5,
     norm=LogNorm(Stokes_IR[0].data.max() * Stokes_IR[0].header["photflam"] / 1e3, Stokes_IR[0].data.max() * Stokes_IR[0].header["photflam"]),
     cmap="inferno",
+    disptype="pf",
+    levels="Default",
 )

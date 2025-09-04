@@ -181,9 +181,9 @@ def plot_Stokes(Stokes, savename=None, plots_folder=""):
         Defaults to current folder.
     """
     # Get data
-    stkI = Stokes["I_stokes"].data.copy()
-    stkQ = Stokes["Q_stokes"].data.copy()
-    stkU = Stokes["U_stokes"].data.copy()
+    stkI = Stokes["stokes"].data[0].copy()
+    stkQ = Stokes["stokes"].data[1].copy()
+    stkU = Stokes["stokes"].data[2].copy()
     data_mask = Stokes["Data_mask"].data.astype(bool)
 
     for dataset in [stkI, stkQ, stkU]:
@@ -288,10 +288,10 @@ def polarization_map(
         The figure and ax created for interactive contour maps.
     """
     # Get data
-    stkI = Stokes["I_stokes"].data.copy()
-    stkQ = Stokes["Q_stokes"].data.copy()
-    stkU = Stokes["U_stokes"].data.copy()
-    stk_cov = Stokes["IQU_COV_MATRIX"].data.copy()
+    stkI = Stokes["STOKES"].data[0].copy()
+    stkQ = Stokes["STOKES"].data[1].copy()
+    stkU = Stokes["STOKES"].data[2].copy()
+    stk_cov = Stokes["STOKES_COV"].data.copy()
     pol = Stokes["Pol_deg_debiased"].data.copy()
     pol_err = Stokes["Pol_deg_err"].data.copy()
     pang = Stokes["Pol_ang"].data.copy()
@@ -314,7 +314,7 @@ def polarization_map(
         for j in range(3):
             stk_cov[i][j][np.logical_not(data_mask)] = np.nan
 
-    wcs = WCS(Stokes[0]).deepcopy()
+    wcs = WCS(Stokes[0]).celestial.deepcopy()
     pivot_wav = Stokes[0].header["photplam"]
     convert_flux = Stokes[0].header["photflam"]
 
@@ -968,10 +968,10 @@ class overplot_radio(align_maps):
         self.wcs_UV = self.map_wcs
         # Get Data
         obj = self.Stokes_UV[0].header["targname"]
-        stkI = self.Stokes_UV["I_STOKES"].data
-        stkQ = self.Stokes_UV["Q_STOKES"].data
-        stkU = self.Stokes_UV["U_STOKES"].data
-        stk_cov = self.Stokes_UV["IQU_COV_MATRIX"].data
+        stkI = self.Stokes_UV["STOKES"].data[0]
+        stkQ = self.Stokes_UV["STOKES"].data[1]
+        stkU = self.Stokes_UV["STOKES"].data[2]
+        stk_cov = self.Stokes_UV["STOKES_COV"].data
         pol = deepcopy(self.Stokes_UV["POL_DEG_DEBIASED"].data)
         pol_err = self.Stokes_UV["POL_DEG_ERR"].data
         pang = self.Stokes_UV["POL_ANG"].data
@@ -1187,10 +1187,10 @@ class overplot_chandra(align_maps):
         self.wcs_UV = self.map_wcs
         # Get Data
         obj = self.Stokes_UV[0].header["targname"]
-        stkI = self.Stokes_UV["I_STOKES"].data
-        stkQ = self.Stokes_UV["Q_STOKES"].data
-        stkU = self.Stokes_UV["U_STOKES"].data
-        stk_cov = self.Stokes_UV["IQU_COV_MATRIX"].data
+        stkI = self.Stokes_UV["STOKES"].data[0]
+        stkQ = self.Stokes_UV["STOKES"].data[1]
+        stkU = self.Stokes_UV["STOKES"].data[2]
+        stk_cov = self.Stokes_UV["STOKES_COV"].data
         pol = deepcopy(self.Stokes_UV["POL_DEG_DEBIASED"].data)
         pol_err = self.Stokes_UV["POL_DEG_ERR"].data
         pang = self.Stokes_UV["POL_ANG"].data
@@ -1398,10 +1398,10 @@ class overplot_pol(align_maps):
         self.wcs_UV = self.map_wcs
         # Get Data
         obj = self.Stokes_UV[0].header["targname"]
-        stkI = self.Stokes_UV["I_STOKES"].data
-        stkQ = self.Stokes_UV["Q_STOKES"].data
-        stkU = self.Stokes_UV["U_STOKES"].data
-        stk_cov = self.Stokes_UV["IQU_COV_MATRIX"].data
+        stkI = self.Stokes_UV["STOKES"].data[0]
+        stkQ = self.Stokes_UV["STOKES"].data[1]
+        stkU = self.Stokes_UV["STOKES"].data[2]
+        stk_cov = self.Stokes_UV["STOKES_COV"].data
         pol = deepcopy(self.Stokes_UV["POL_DEG_DEBIASED"].data)
         pol_err = self.Stokes_UV["POL_DEG_ERR"].data
         pang = self.Stokes_UV["POL_ANG"].data
@@ -1702,8 +1702,8 @@ class align_pol(object):
 
     def single_plot(self, curr_map, wcs, v_lim=None, ax_lim=None, P_cut=3.0, SNRi_cut=3.0, savename=None, **kwargs):
         # Get data
-        stkI = curr_map["I_STOKES"].data
-        stk_cov = curr_map["IQU_COV_MATRIX"].data
+        stkI = curr_map["STOKES"].data[0]
+        stk_cov = curr_map["STOKES_COV"].data
         pol = deepcopy(curr_map["POL_DEG_DEBIASED"].data)
         pol_err = curr_map["POL_DEG_ERR"].data
         pang = curr_map["POL_ANG"].data

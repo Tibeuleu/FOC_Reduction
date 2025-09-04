@@ -20,13 +20,13 @@ def main(infile, P_cut=0.99, target=None, display="pf", output_dir=None):
     output = []
 
     Stokes = fits_open(infile)
-    stkI = Stokes["I_STOKES"].data
-    s_I = np.sqrt(Stokes["IQU_COV_MATRIX"].data[0, 0])
+    stkI = Stokes["STOKES"].data[0]
+    s_I = np.sqrt(Stokes["STOKES_COV"].data[0, 0])
     SNRi = np.zeros(stkI.shape)
     SNRi[s_I > 0.0] = stkI[s_I > 0.0] / s_I[s_I > 0.0]
     QN, UN, QN_ERR, UN_ERR = np.full((4, stkI.shape[0], stkI.shape[1]), np.nan)
     for sflux, nflux in zip(
-        [Stokes["Q_STOKES"].data, Stokes["U_STOKES"].data, np.sqrt(Stokes["IQU_COV_MATRIX"].data[1, 1]), np.sqrt(Stokes["IQU_COV_MATRIX"].data[2, 2])],
+        [Stokes["STOKES"].data[1], Stokes["STOKES"].data[2], np.sqrt(Stokes["STOKES_COV"].data[1, 1]), np.sqrt(Stokes["STOKES_COV"].data[2, 2])],
         [QN, UN, QN_ERR, UN_ERR],
     ):
         nflux[stkI > 0.0] = sflux[stkI > 0.0] / stkI[stkI > 0.0]
@@ -41,7 +41,7 @@ def main(infile, P_cut=0.99, target=None, display="pf", output_dir=None):
         Stokescentconf, Stokescenter = CenterConf(Stokesconf > P_cut, Stokes["POL_ANG"].data, Stokes["POL_ANG_ERR"].data)
     else:
         Stokescentconf, Stokescenter = CenterConf(Stokessnr > P_cut, Stokes["POL_ANG"].data, Stokes["POL_ANG_ERR"].data)
-    Stokespos = WCS(Stokes[0].header).pixel_to_world(*Stokescenter)
+    Stokespos = WCS(Stokes[0].header).celestial.pixel_to_world(*Stokescenter)
 
     if target is None:
         target = Stokes[0].header["TARGNAME"]

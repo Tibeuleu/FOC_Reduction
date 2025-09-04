@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
+from copy import deepcopy
 from pathlib import Path
 from sys import path as syspath
 
@@ -26,7 +27,7 @@ def same_reduction(infiles):
                 except KeyError:
                     pass
             test_IQU = True
-            for look in ["I_stokes", "Q_stokes", "U_stokes", "IQU_cov_matrix"]:
+            for look in ["STOKES", "STOKES_COV"]:
                 test_IQU *= look in datatype
             params["IQU"].append(test_IQU)
             # test for orientation and pixel size
@@ -88,73 +89,78 @@ def same_obs(infiles, data_folder):
 
 def combine_Stokes(infiles):
     """
-    Combine I, Q, U from different observations of a same object.
+    Combine Stokes matrices from different observations of a same object.
     """
     from astropy.io.fits import open as fits_open
     from lib.reduction import align_data, zeropad
+    from lib.utils import remove_stokes_axis_from_header
     from scipy.ndimage import shift as sc_shift
 
-    I_array, Q_array, U_array, IQU_cov_array, data_mask, headers = [], [], [], [], [], []
+    Stokes_array, Stokes_cov_array, Stokes_cov_stat_array, data_mask, headers = [], [], [], [], []
     shape = np.array([0, 0])
     for file in infiles:
         with fits_open(file) as f:
             headers.append(f[0].header)
-            I_array.append(f["I_stokes"].data)
-            Q_array.append(f["Q_stokes"].data)
-            U_array.append(f["U_stokes"].data)
-            IQU_cov_array.append(f["IQU_cov_matrix"].data)
+            Stokes_array.append(f["stokes"].data)
+            Stokes_cov_array.append(f["stokes_cov"].data)
+            Stokes_cov_stat_array.append(f["stokes_cov_stat"].data)
             data_mask.append(f["data_mask"].data.astype(bool))
-            shape[0] = np.max([shape[0], f["I_stokes"].data.shape[0]])
-            shape[1] = np.max([shape[1], f["I_stokes"].data.shape[1]])
+            shape[0] = np.max([shape[0], f["stokes"].data[0].shape[0]])
+            shape[1] = np.max([shape[1], f["stokes"].data[0].shape[1]])
 
     exposure_array = np.array([float(head["EXPTIME"]) for head in headers])
 
     shape += np.array([5, 5])
     data_mask = np.sum([zeropad(mask, shape) for mask in data_mask], axis=0).astype(bool)
-    I_array = np.array([zeropad(I, shape) for I in I_array])
-    Q_array = np.array([zeropad(Q, shape) for Q in Q_array])
-    U_array = np.array([zeropad(U, shape) for U in U_array])
-    IQU_cov_array = np.array([[[zeropad(cov[i, j], shape) for j in range(3)] for i in range(3)] for cov in IQU_cov_array])
+    Stokes_array = np.array([[zeropad(stk[i], shape) for i in range(4)] for stk in Stokes_array])
+    Stokes_cov_array = np.array([[[zeropad(cov[i, j], shape) for j in range(4)] for i in range(4)] for cov in Stokes_cov_array])
+    Stokes_cov_stat_array = np.array([[[zeropad(cov_stat[i, j], shape) for j in range(4)] for i in range(4)] for cov_stat in Stokes_cov_stat_array])
 
-    sI_array = np.sqrt(IQU_cov_array[:, 0, 0])
-    sQ_array = np.sqrt(IQU_cov_array[:, 1, 1])
-    sU_array = np.sqrt(IQU_cov_array[:, 2, 2])
+    I_array = deepcopy(Stokes_array[:, 0])
+    sI_array = deepcopy(np.sqrt(Stokes_cov_array[:, 0, 0]))
 
-    _, _, _, _, shifts, errors = align_data(I_array, headers, error_array=sI_array, data_mask=data_mask, ref_center="center", return_shifts=True)
+    heads = [remove_stokes_axis_from_header(head) for head in headers]
+    _, _, _, _, shifts, errors = align_data(
+        I_array, heads, error_array=sI_array, background=sI_array[:, 0, 0], data_mask=data_mask, ref_center="center", return_shifts=True
+    )
     data_mask_aligned = np.sum([sc_shift(data_mask, s, order=1, cval=0.0) for s in shifts], axis=0).astype(bool)
-    I_aligned, sI_aligned = (
-        np.array([sc_shift(I, s, order=1, cval=0.0) for I, s in zip(I_array, shifts)]),
-        np.array([sc_shift(sI, s, order=1, cval=0.0) for sI, s in zip(sI_array, shifts)]),
+    Stokes_aligned = np.array([[sc_shift(stk[i], s, order=1, cval=0.0) for i in range(4)] for stk, s in zip(Stokes_array, shifts)])
+    Stokes_cov_aligned = np.array(
+        [[[sc_shift(cov[i, j], s, order=1, cval=0.0) for j in range(4)] for i in range(4)] for cov, s in zip(Stokes_cov_array, shifts)]
     )
-    Q_aligned, sQ_aligned = (
-        np.array([sc_shift(Q, s, order=1, cval=0.0) for Q, s in zip(Q_array, shifts)]),
-        np.array([sc_shift(sQ, s, order=1, cval=0.0) for sQ, s in zip(sQ_array, shifts)]),
+    Stokes_cov_stat_aligned = np.array(
+        [[[sc_shift(cov_stat[i, j], s, order=1, cval=0.0) for j in range(4)] for i in range(4)] for cov_stat, s in zip(Stokes_cov_stat_array, shifts)]
     )
-    U_aligned, sU_aligned = (
-        np.array([sc_shift(U, s, order=1, cval=0.0) for U, s in zip(U_array, shifts)]),
-        np.array([sc_shift(sU, s, order=1, cval=0.0) for sU, s in zip(sU_array, shifts)]),
-    )
-    IQU_cov_aligned = np.array([[[sc_shift(cov[i, j], s, order=1, cval=0.0) for j in range(3)] for i in range(3)] for cov, s in zip(IQU_cov_array, shifts)])
 
-    I_combined = np.sum([exp * I for exp, I in zip(exposure_array, I_aligned)], axis=0) / exposure_array.sum()
-    Q_combined = np.sum([exp * Q for exp, Q in zip(exposure_array, Q_aligned)], axis=0) / exposure_array.sum()
-    U_combined = np.sum([exp * U for exp, U in zip(exposure_array, U_aligned)], axis=0) / exposure_array.sum()
+    Stokes_combined = np.zeros((4, shape[0], shape[1]))
+    for i in range(4):
+        Stokes_combined[i] = np.sum([exp * stk for exp, stk in zip(exposure_array, Stokes_aligned[:, i])], axis=0) / exposure_array.sum()
 
-    IQU_cov_combined = np.zeros((3, 3, shape[0], shape[1]))
-    for i in range(3):
-        IQU_cov_combined[i, i] = np.sum([exp**2 * cov for exp, cov in zip(exposure_array, IQU_cov_aligned[:, i, i])], axis=0) / exposure_array.sum() ** 2
-        for j in [x for x in range(3) if x != i]:
-            IQU_cov_combined[i, j] = np.sqrt(
-                np.sum([exp**2 * cov**2 for exp, cov in zip(exposure_array, IQU_cov_aligned[:, i, j])], axis=0) / exposure_array.sum() ** 2
+    Stokes_cov_combined = np.zeros((4, 4, shape[0], shape[1]))
+    Stokes_cov_stat_combined = np.zeros((4, 4, shape[0], shape[1]))
+    for i in range(4):
+        Stokes_cov_combined[i, i] = np.sum([exp**2 * cov for exp, cov in zip(exposure_array, Stokes_cov_aligned[:, i, i])], axis=0) / exposure_array.sum() ** 2
+        Stokes_cov_stat_combined[i, i] = (
+            np.sum([exp**2 * cov_stat for exp, cov_stat in zip(exposure_array, Stokes_cov_stat_aligned[:, i, i])], axis=0) / exposure_array.sum() ** 2
+        )
+        for j in [x for x in range(4) if x != i]:
+            Stokes_cov_combined[i, j] = np.sqrt(
+                np.sum([exp**2 * cov**2 for exp, cov in zip(exposure_array, Stokes_cov_aligned[:, i, j])], axis=0) / exposure_array.sum() ** 2
             )
-            IQU_cov_combined[j, i] = np.sqrt(
-                np.sum([exp**2 * cov**2 for exp, cov in zip(exposure_array, IQU_cov_aligned[:, j, i])], axis=0) / exposure_array.sum() ** 2
+            Stokes_cov_combined[j, i] = np.sqrt(
+                np.sum([exp**2 * cov**2 for exp, cov in zip(exposure_array, Stokes_cov_aligned[:, j, i])], axis=0) / exposure_array.sum() ** 2
+            )
+            Stokes_cov_stat_combined[i, j] = np.sqrt(
+                np.sum([exp**2 * cov_stat**2 for exp, cov_stat in zip(exposure_array, Stokes_cov_stat_aligned[:, i, j])], axis=0) / exposure_array.sum() ** 2
+            )
+            Stokes_cov_stat_combined[j, i] = np.sqrt(
+                np.sum([exp**2 * cov_stat**2 for exp, cov_stat in zip(exposure_array, Stokes_cov_stat_aligned[:, j, i])], axis=0) / exposure_array.sum() ** 2
             )
 
     header_combined = headers[0]
     header_combined["EXPTIME"] = exposure_array.sum()
 
-    return I_combined, Q_combined, U_combined, IQU_cov_combined, data_mask_aligned, header_combined
+    return Stokes_combined, Stokes_cov_combined, Stokes_cov_stat_combined, data_mask_aligned, header_combined
 
 
 def main(infiles, target=None, output_dir="./data/"):
@@ -190,21 +196,24 @@ def main(infiles, target=None, output_dir="./data/"):
 
         infiles = new_infiles
 
-    I_combined, Q_combined, U_combined, IQU_cov_combined, data_mask_combined, header_combined = combine_Stokes(infiles=infiles)
-    I_combined, Q_combined, U_combined, IQU_cov_combined, data_mask_combined, header_combined = rotate_Stokes(
-        I_stokes=I_combined, Q_stokes=Q_combined, U_stokes=U_combined, Stokes_cov=IQU_cov_combined, data_mask=data_mask_combined, header_stokes=header_combined
+    Stokes_combined, Stokes_cov_combined, Stokes_cov_stat_combined, data_mask_combined, header_combined = combine_Stokes(infiles=infiles)
+    Stokes_combined, Stokes_cov_combined, data_mask_combined, header_combined, Stokes_cov_stat_combined = rotate_Stokes(
+        Stokes=Stokes_combined,
+        Stokes_cov=Stokes_cov_combined,
+        Stokes_cov_stat=Stokes_cov_stat_combined,
+        data_mask=data_mask_combined,
+        header_stokes=header_combined,
     )
 
     P, debiased_P, s_P, s_P_P, PA, s_PA, s_PA_P = compute_pol(
-        I_stokes=I_combined, Q_stokes=Q_combined, U_stokes=U_combined, Stokes_cov=IQU_cov_combined, header_stokes=header_combined
+        Stokes=Stokes_combined, Stokes_cov=Stokes_cov_combined, Stokes_cov_stat=Stokes_cov_stat_combined, header_stokes=header_combined
     )
     filename = header_combined["FILENAME"]
     figname = "_".join([target, filename[filename.find("FOC_") :], "combined"])
-    Stokes_combined = save_Stokes(
-        I_stokes=I_combined,
-        Q_stokes=Q_combined,
-        U_stokes=U_combined,
-        Stokes_cov=IQU_cov_combined,
+    Stokes_c = save_Stokes(
+        Stokes=Stokes_combined,
+        Stokes_cov=Stokes_cov_combined,
+        Stokes_cov_stat=Stokes_cov_stat_combined,
         P=P,
         debiased_P=debiased_P,
         s_P=s_P,
@@ -219,7 +228,7 @@ def main(infiles, target=None, output_dir="./data/"):
         return_hdul=True,
     )
 
-    pol_map(Stokes_combined, **kwargs)
+    pol_map(Stokes_c, **kwargs)
 
     return "/".join([data_folder, figname + ".fits"])
 
