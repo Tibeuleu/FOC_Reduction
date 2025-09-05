@@ -515,8 +515,7 @@ def get_error(
     if data_mask is not None:
         mask = deepcopy(data_mask)
     else:
-        data_c, error_c, _ = crop_array(data, headers, error, step=5, null_val=0.0, inside=False)
-        mask_c = np.ones(data_c[0].shape, dtype=bool)
+        data_c, error_c, mask_c, _ = crop_array(data, headers, error_array=error, step=5, null_val=0.0, inside=False)
         for i, (data_ci, error_ci) in enumerate(zip(data_c, error_c)):
             data[i], error[i] = zeropad(data_ci, data[i].shape), zeropad(error_ci, error[i].shape)
         mask = zeropad(mask_c, data[0].shape).astype(bool)
@@ -773,7 +772,7 @@ def align_data(
     err_array = np.concatenate((error_array, [np.zeros(ref_data.shape)]), axis=0)
 
     if data_mask is None:
-        full_array, err_array, full_headers = crop_array(full_array, full_headers, err_array, step=5, inside=False, null_val=0.0)
+        full_array, err_array, data_mask, full_headers = crop_array(full_array, full_headers, error_array=err_array, step=5, inside=False, null_val=0.0)
     else:
         full_array, err_array, data_mask, full_headers = crop_array(
             full_array, full_headers, err_array, data_mask=data_mask, step=5, inside=False, null_val=0.0
