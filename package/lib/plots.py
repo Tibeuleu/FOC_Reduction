@@ -2913,7 +2913,7 @@ class pol_map(object):
         b_tf = Button(ax_tf, r"$F_{\lambda}$")
         b_pf = Button(ax_pf, r"$F_{\lambda} \cdot P$")
         b_p = Button(ax_p, r"$P$")
-        b_pa = Button(ax_pa, r"$\theta_{P}$")
+        b_pa = Button(ax_pa, r"$\Psi$")
         b_snri = Button(ax_snri, r"$I / \sigma_{I}$")
         b_snrp = Button(ax_snrp, r"$P / \sigma_{P}$")
 
@@ -3220,8 +3220,8 @@ class pol_map(object):
             ax.set_ylim(0, self.data.shape[0])
             plt.rcParams.update({"font.size": 14})
             fig.colorbar(im, ax=ax, aspect=50, shrink=0.75, pad=0.025, label=label)
-            if format_cursor_data is not None:
-                self.im.format_cursor_data = format_cursor_data
+            # if format_cursor_data is not None:
+            #     self.im.format_cursor_data = format_cursor_data
             plt.rcParams.update({"font.size": 10})
             fig.canvas.draw_idle()
             return im

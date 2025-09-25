@@ -45,14 +45,14 @@ def display_bkg(data, background, std_bkg, headers, histograms=None, binning=Non
     date_time = np.array([datetime.strptime(d, "%Y-%m-%d %H:%M:%S") for d in date_time])
     date_err = np.array([timedelta(seconds=headers[i]["exptime"] / 2.0) for i in range(len(headers))])
     filt = np.array([headers[i]["filtnam1"] for i in range(len(headers))])
-    dict_filt = {"POL0": "r", "POL60": "g", "POL120": "b"}
-    c_filt = np.array([dict_filt[f] for f in filt])
+    dict_filt = {"POL0": "yo", "POL60": "bv", "POL120": "rs"}
+    c_filt = np.array([dict_filt[f][0] for f in filt])
 
-    fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(10, 4), constrained_layout=True)
+    ax.errorbar(date_time, background * convert_flux, xerr=date_err, yerr=std_bkg * convert_flux, fmt="+k", markersize=0, ecolor=c_filt)
     for f in np.unique(filt):
         mask = [fil == f for fil in filt]
-        ax.scatter(date_time[mask], background[mask] * convert_flux[mask], color=dict_filt[f], label="{0:s}".format(f))
-    ax.errorbar(date_time, background * convert_flux, xerr=date_err, yerr=std_bkg * convert_flux, fmt="+k", markersize=0, ecolor=c_filt)
+        ax.scatter(date_time[mask], background[mask] * convert_flux[mask], color=dict_filt[f][0], marker=dict_filt[f][1], label="{0:s}".format(f))
     # Date handling
     locator = mdates.AutoDateLocator()
     formatter = mdates.ConciseDateFormatter(locator)
@@ -69,7 +69,7 @@ def display_bkg(data, background, std_bkg, headers, histograms=None, binning=Non
             this_savename += "_background_flux.pdf"
         else:
             this_savename = savename[:-4] + "_background_flux" + savename[-4:]
-        fig.savefig(path_join(plots_folder, this_savename), bbox_inches="tight")
+        fig.savefig(path_join(plots_folder, this_savename), bbox_inches="tight", facecolor="None", edgecolor="None")
 
     if histograms is not None:
         filt_obs = {"POL0": 0, "POL60": 0, "POL120": 0}
@@ -111,7 +111,7 @@ def display_bkg(data, background, std_bkg, headers, histograms=None, binning=Non
                 this_savename += "_histograms.pdf"
             else:
                 this_savename = savename[:-4] + "_histograms" + savename[-4:]
-            fig_h.savefig(path_join(plots_folder, this_savename), bbox_inches="tight")
+            fig_h.savefig(path_join(plots_folder, this_savename), bbox_inches="tight", facecolor="None", edgecolor="None")
 
     fig2, ax2 = plt.subplots(figsize=(10, 10))
     data0 = data[0] * convert_flux[0]
@@ -144,7 +144,7 @@ def display_bkg(data, background, std_bkg, headers, histograms=None, binning=Non
             this_savename += "_" + filt + "_background_location.pdf"
         else:
             this_savename = savename[:-4] + "_" + filt + "_background_location" + savename[-4:]
-        fig2.savefig(path_join(plots_folder, this_savename), bbox_inches="tight")
+        fig2.savefig(path_join(plots_folder, this_savename), bbox_inches="tight", facecolor="None", edgecolor="None")
         if rectangle is not None:
             plot_obs(
                 data,
