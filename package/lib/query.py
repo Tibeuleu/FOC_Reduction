@@ -231,7 +231,7 @@ def retrieve_products(target=None, proposal_id=None, instrument="foc", output_di
                 obs_dir = path_join(path_join(output_dir, targ), obs["proposal_id"])
                 if not path_exists(obs_dir):
                     system("mkdir -p {0:s} {1:s}".format(obs_dir, obs_dir.replace("data", "plots")))
-                for file in products["productFilename"][products["Obs"] == obs["Obs"]]:
+                for file in products["productFilename"][np.logical_and(products["Obs"] == obs["Obs"], products["targname"] == targ)]:
                     fpath = path_join(obs_dir, file)
                     if not path_exists(fpath):
                         out += "{0:s} : {1:s}\n".format(
