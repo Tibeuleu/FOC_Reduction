@@ -11,7 +11,7 @@ from warnings import filterwarnings
 
 import astropy.units as u
 import numpy as np
-from astropy.table import Column, unique
+from astropy.table import Column, unique, vstack
 from astropy.time import Time, TimeDelta
 from astroquery.exceptions import NoResultsWarning
 from astroquery.mast import MastMissions, Observations
@@ -82,14 +82,20 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
         "References",
     ]
 
-    if target is None:
+    if target is None and proposal_id is None:
         target = input("Target name:\n>")
 
     # Use query_object method to resolve the object name into coordinates
     if instrument == "foc":
-        results = mission.query_object(
-            target, radius=radius, select_cols=select_cols, sci_spec_1234="POL*", sci_obs_type="image", sci_aec="S", sci_instrume="foc"
-        )
+        if target is None and proposal_id is not None:
+            results = mission.query_criteria(
+                sci_pep_id=proposal_id, radius=radius, select_cols=select_cols, sci_spec_1234="POL*", sci_obs_type="image", sci_aec="S", sci_instrume="foc"
+            )
+            target = list(results["sci_targname"])
+        else:
+            results = mission.query_object(
+                target, radius=radius, select_cols=select_cols, sci_spec_1234="POL*", sci_obs_type="image", sci_aec="S", sci_instrume="foc"
+            )
         dataproduct_type = "image"
         description = "DADS C0F file - Calibrated exposure WFPC/WFPC2/FOC/FOS/GHRS/HSP"
     elif instrument == "fos":
@@ -110,8 +116,16 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
     results["Start"] = Column(Time(results["Start"]))
     results["Stop"] = Column(Time(results["Stop"]))
 
-    results = divide_proposal(results)
-    obs = results.copy()
+    if isinstance(target, list):
+        for i, targ in enumerate(target):
+            results_div = divide_proposal(results[results["Target name"] == targ])
+            if i == 0:
+                obs = results_div.copy()
+            else:
+                obs = vstack([obs, results_div])
+    else:
+        results_div = divide_proposal(results)
+        obs = results_div.copy()
 
     # Remove single observations for which a FIND filter is used
     to_remove = []
@@ -142,6 +156,7 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
             if len(c3prod) < 1:
                 obs.remove_rows(np.arange(len(obs))[obs["Proposal ID"] == pid])
 
+    # tab = unique(obs, ["Target name", "Proposal ID"])
     tab = unique(obs, ["Target name", "Proposal ID"])
     obs["Obs"] = [np.argmax(np.logical_and(tab["Proposal ID"] == data["Proposal ID"], tab["Target name"] == data["Target name"])) + 1 for data in obs]
     try:
@@ -150,7 +165,7 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
         raise ValueError("There is no observation with polarimetry for {0:s} in HST/{1:s} Legacy Archive".format(target, instrument.upper()))
 
     b = np.zeros(len(results), dtype=bool)
-    if proposal_id is not None and str(proposal_id) in obs["Proposal ID"]:
+    if proposal_id is not None and np.all(str(proposal_id) == np.unique(obs["Proposal ID"])):
         b[results["Proposal ID"] == str(proposal_id)] = True
     else:
         n_obs.pprint(len(n_obs) + 2)
@@ -184,6 +199,7 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
     tab = unique(products, "proposal_id")
 
     products["Obs"] = [np.argmax(tab["proposal_id"] == data["proposal_id"]) + 1 for data in products]
+    products["targname"] = [obs["Target name"][np.argmax(obs["Dataset"] == data[:-9].upper())] for data in products["productFilename"]]
     return target, products
 
 
@@ -195,23 +211,43 @@ def retrieve_products(target=None, proposal_id=None, instrument="foc", output_di
     prodpaths = []
     # data_dir = path_join(output_dir, target)
     out = ""
-    for obs in unique(products, "Obs"):
-        filepaths = []
-        # obs_dir = path_join(data_dir, obs['prodposal_id'])
-        # if obs['target_name']!=target:
-        obs_dir = path_join(path_join(output_dir, target), obs["proposal_id"])
-        if not path_exists(obs_dir):
-            system("mkdir -p {0:s} {1:s}".format(obs_dir, obs_dir.replace("data", "plots")))
-        for file in products["productFilename"][products["Obs"] == obs["Obs"]]:
-            fpath = path_join(obs_dir, file)
-            if not path_exists(fpath):
-                out += "{0:s} : {1:s}\n".format(
-                    file, Observations.download_file(products["dataURI"][products["productFilename"] == file][0], local_path=fpath)[0]
-                )
-            else:
-                out += "{0:s} : Exists\n".format(file)
-            filepaths.append([obs_dir, file])
-        prodpaths.append(np.array(filepaths, dtype=str))
+    if isinstance(target, list):
+        for targ in target:
+            for obs in unique(products[products["targname"] == targ], "Obs"):
+                filepaths = []
+                # obs_dir = path_join(data_dir, obs['prodposal_id'])
+                # if obs['target_name']!=target:
+                obs_dir = path_join(path_join(output_dir, targ), obs["proposal_id"])
+                if not path_exists(obs_dir):
+                    system("mkdir -p {0:s} {1:s}".format(obs_dir, obs_dir.replace("data", "plots")))
+                for file in products["productFilename"][products["Obs"] == obs["Obs"]]:
+                    fpath = path_join(obs_dir, file)
+                    if not path_exists(fpath):
+                        out += "{0:s} : {1:s}\n".format(
+                            file, Observations.download_file(products["dataURI"][products["productFilename"] == file][0], local_path=fpath)[0]
+                        )
+                    else:
+                        out += "{0:s} : Exists\n".format(file)
+                    filepaths.append([obs_dir, file])
+                prodpaths.append(np.array(filepaths, dtype=str))
+    else:
+        for obs in unique(products[products["Target name"] == targ], "Obs"):
+            filepaths = []
+            # obs_dir = path_join(data_dir, obs['prodposal_id'])
+            # if obs['target_name']!=target:
+            obs_dir = path_join(path_join(output_dir, target), obs["proposal_id"])
+            if not path_exists(obs_dir):
+                system("mkdir -p {0:s} {1:s}".format(obs_dir, obs_dir.replace("data", "plots")))
+            for file in products["productFilename"][products["Obs"] == obs["Obs"]]:
+                fpath = path_join(obs_dir, file)
+                if not path_exists(fpath):
+                    out += "{0:s} : {1:s}\n".format(
+                        file, Observations.download_file(products["dataURI"][products["productFilename"] == file][0], local_path=fpath)[0]
+                    )
+                else:
+                    out += "{0:s} : Exists\n".format(file)
+                filepaths.append([obs_dir, file])
+            prodpaths.append(np.array(filepaths, dtype=str))
 
     return target, prodpaths
 
