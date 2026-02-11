@@ -91,7 +91,7 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
             results = mission.query_criteria(
                 sci_pep_id=proposal_id, radius=radius, select_cols=select_cols, sci_spec_1234="POL*", sci_obs_type="image", sci_aec="S", sci_instrume="foc"
             )
-            target = list(results["sci_targname"])
+            target = list(np.unique(results["sci_targname"]))
         else:
             results = mission.query_object(
                 target, radius=radius, select_cols=select_cols, sci_spec_1234="POL*", sci_obs_type="image", sci_aec="S", sci_instrume="foc"
@@ -122,7 +122,7 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
             if i == 0:
                 obs = results_div.copy()
             else:
-                obs = vstack([obs, results_div])
+                obs = vstack([obs, results_div.copy()])
     else:
         results_div = divide_proposal(results)
         obs = results_div.copy()
@@ -136,12 +136,21 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
     # Remove observations for which a polarization filter is missing
     if instrument == "foc":
         polfilt = {"POL0": 0, "POL60": 1, "POL120": 2}
-        for pid in np.unique(obs["Proposal ID"]):
-            used_pol = np.zeros(3)
-            for dataset in obs[obs["Proposal ID"] == pid]:
-                used_pol[polfilt[dataset["POLFilters"]]] += 1
-            if np.any(used_pol < 1):
-                obs.remove_rows(np.arange(len(obs))[obs["Proposal ID"] == pid])
+        if isinstance(target, list):
+            for targ in target:
+                for pid in np.unique(obs[obs["Target name"] == targ]["Proposal ID"]):
+                    used_pol = np.zeros(3)
+                    for dataset in obs[np.logical_and(obs["Target name"] == targ, obs["Proposal ID"] == pid)]:
+                        used_pol[polfilt[dataset["POLFilters"]]] += 1
+                    if np.any(used_pol < 1):
+                        obs.remove_rows(np.arange(len(obs))[np.logical_and(obs["Target name"] == targ, obs["Proposal ID"] == pid)])
+        else:
+            for pid in np.unique(obs["Proposal ID"]):
+                used_pol = np.zeros(3)
+                for dataset in obs[obs["Proposal ID"] == pid]:
+                    used_pol[polfilt[dataset["POLFilters"]]] += 1
+                if np.any(used_pol < 1):
+                    obs.remove_rows(np.arange(len(obs))[obs["Proposal ID"] == pid])
     # Remove observations for which a spectropolarization has not been reduced
     if instrument == "fos":
         for pid in np.unique(obs["Proposal ID"]):
@@ -186,6 +195,8 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
                 else:
                     b[np.array([dataset in obs["Dataset"][obs["Obs"] == i[0]] for dataset in results["Dataset"]])] = True
 
+    targetb = list(np.unique(results["Target name"][b]))
+    target = targetb if len(targetb) > 1 else targetb[0]
     observations = Observations.query_criteria(obs_id=list(results["Dataset"][b]))
     products = Observations.filter_products(
         Observations.get_product_list(observations), productType=["SCIENCE"], dataproduct_type=dataproduct_type, calib_level=[2], description=description
@@ -231,7 +242,7 @@ def retrieve_products(target=None, proposal_id=None, instrument="foc", output_di
                     filepaths.append([obs_dir, file])
                 prodpaths.append(np.array(filepaths, dtype=str))
     else:
-        for obs in unique(products[products["Target name"] == targ], "Obs"):
+        for obs in unique(products, "Obs"):
             filepaths = []
             # obs_dir = path_join(data_dir, obs['prodposal_id'])
             # if obs['target_name']!=target:
