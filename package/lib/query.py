@@ -194,12 +194,12 @@ def get_product_list(target=None, proposal_id=None, instrument="foc"):
     products["proposal_id"] = Column(products["proposal_id"], dtype="U35")
 
     for prod in products:
-        prod["proposal_id"] = results["Proposal ID"][results["Dataset"] == prod["productFilename"][: len(results["Dataset"][0])].upper()][0]
+        prod["proposal_id"] = obs["Proposal ID"][np.argmax(obs["Dataset"] == prod["productFilename"][: len(obs["Dataset"][0])].upper())]
 
     tab = unique(products, "proposal_id")
 
     products["Obs"] = [np.argmax(tab["proposal_id"] == data["proposal_id"]) + 1 for data in products]
-    products["targname"] = [obs["Target name"][np.argmax(obs["Dataset"] == data[:-9].upper())] for data in products["productFilename"]]
+    products["targname"] = [obs["Target name"][np.argmax(obs["Dataset"] == data[: len(obs["Dataset"][0])].upper())] for data in products["productFilename"]]
     return target, products
 
 
