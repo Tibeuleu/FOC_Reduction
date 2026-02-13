@@ -189,7 +189,7 @@ def plot_Stokes(Stokes, savename=None, plots_folder=""):
     for dataset in [stkI, stkQ, stkU]:
         dataset[np.logical_not(data_mask)] = np.nan
 
-    wcs = WCS(Stokes[0]).deepcopy()
+    wcs = WCS(Stokes[0]).celestial.deepcopy()
 
     # Plot figure
     plt.rcParams.update({"font.size": 14})
@@ -370,7 +370,9 @@ def polarization_map(
     ax.coords[0].set_axislabel("Right Ascension (J2000)")
     ax.coords[0].set_axislabel_position("t")
     ax.coords[0].set_ticklabel_position("t")
-    ax.set_ylabel("Declination (J2000)", labelpad=-1)
+    ax.coords[1].set_axislabel("Declination (J2000)")
+    ax.coords[1].set_axislabel_position("l")
+    ax.coords[1].set_ticklabel_position("l")
 
     vmin, vmax = 0.0, stkI.max() * convert_flux
     for key, value in [["cmap", [["cmap", "inferno"]]], ["width", [["width", 0.4]]], ["linewidth", [["linewidth", 0.6]]]]:

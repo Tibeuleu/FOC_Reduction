@@ -89,7 +89,7 @@ def get_obs_data(infiles, data_folder="", compute_flux=False):
 
     # force WCS for POL60 to have same pixel size as POL0 and POL120
     is_pol60 = np.array([head["filtnam1"].lower() == "pol60" for head in headers], dtype=bool)
-    cdelt = np.round(np.array([WCS(head).wcs.cdelt[:2] for head in headers]), 10)
+    cdelt = np.round(np.abs(np.array([WCS(head).wcs.cdelt[:2] for head in headers])), 10)
     if np.unique(cdelt[np.logical_not(is_pol60)], axis=0).size != 2:
         print(np.unique(cdelt[np.logical_not(is_pol60)], axis=0))
         raise ValueError("Not all images have same pixel size")
