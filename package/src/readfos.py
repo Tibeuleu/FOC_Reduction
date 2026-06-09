@@ -350,6 +350,7 @@ class specpol(object):
             )
             xmin, xmax = np.min(self.wav_r - self.wav_r_err[:, 0]), np.max(self.wav_r + self.wav_r_err[:, 1])
             ax1.errorbar(self.wav_r, self.I_r / yoff, xerr=self.wav_r_err.T, yerr=self.I_r_err / yoff, color="k", fmt=".", label="I")
+            ax1.plot(self.wav_r, self.I_r / yoff, "k--", alpha=0.5)
         else:
             yoffset = np.floor(np.log10(self.I[self.I > 0.0].min())).astype(int)
             yoff = 10.0**yoffset
@@ -359,6 +360,7 @@ class specpol(object):
             )
             xmin, xmax = np.min(self.wav - self.wav_err[:, 0]), np.max(self.wav + self.wav_err[:, 1])
             ax1.errorbar(self.wav, self.I / yoff, xerr=self.wav_err.T, yerr=self.I_err / yoff, color="k", fmt=".", label="I")
+            ax1.plot(self.wav, self.I / yoff, "k--", alpha=0.5)
 
         ax1.set_xlim([np.min([xmin, self.bin_edges.min()]), np.max([xmax, self.bin_edges.max()])])
         ax1.set_xlabel(self.hd["XUNIT"])
@@ -429,14 +431,14 @@ class specpol(object):
             if other.bin_edges[-1] > bin_edges[-1]:
                 bin_edges = np.concat((bin_edges, deepcopy(other.bin_edges[other.bin_edges > bin_edges[-1]])), axis=0)
                 intersect = np.logical_and(
-                    0.5 * (bin_edges[1:] + bin_edges[:-1]) > min(self.bin_edges[-1], other.bin_edges[-1]),
-                    0.5 * (bin_edges[1:] + bin_edges[:-1]) < max(self.bin_edges[0], other.bin_edges[0]),
+                    0.5 * (bin_edges[1:] + bin_edges[:-1]) < min(self.bin_edges[-3], other.bin_edges[-3]),
+                    0.5 * (bin_edges[1:] + bin_edges[:-1]) > max(self.bin_edges[0], other.bin_edges[0]),
                 )
             elif self.bin_edges[-1] > bin_edges[-1]:
                 bin_edges = np.concat((bin_edges, deepcopy(self.bin_edges[self.bin_edges > bin_edges[-1]])), axis=0)
                 intersect = np.logical_and(
-                    0.5 * (bin_edges[1:] + bin_edges[:-1]) > min(self.bin_edges[-1], other.bin_edges[-1]),
-                    0.5 * (bin_edges[1:] + bin_edges[:-1]) < max(self.bin_edges[0], other.bin_edges[0]),
+                    0.5 * (bin_edges[1:] + bin_edges[:-1]) < min(self.bin_edges[-3], other.bin_edges[-3]),
+                    0.5 * (bin_edges[1:] + bin_edges[:-1]) > max(self.bin_edges[0], other.bin_edges[0]),
                 )
         # Rebin spectra to be added to ensure same binning
         spec_a = specpol(specpol(self).bin(bin_edges=bin_edges))
@@ -484,13 +486,13 @@ class specpol(object):
 
         # Sum stokes fluxes
         spec.I[np.logical_not(intersect)] = deepcopy(spec_a.I + spec_b.I)[np.logical_not(intersect)]
-        spec.I[intersect] = 0.5 * deepcopy(spec_a.I + spec_b.I)[intersect]
+        spec.I[intersect] = (0.5 * (spec_a.I + spec_b.I) / (bin_edges[1:] - bin_edges[:-1]))[intersect]
         spec.Q[np.logical_not(intersect)] = deepcopy(spec_a.Q + spec_b.Q)[np.logical_not(intersect)]
-        spec.Q[intersect] = 0.5 * deepcopy(spec_a.Q + spec_b.Q)[intersect]
+        spec.Q[intersect] = (0.5 * (spec_a.Q + spec_b.Q) / (bin_edges[1:] - bin_edges[:-1]))[intersect]
         spec.U[np.logical_not(intersect)] = deepcopy(spec_a.U + spec_b.U)[np.logical_not(intersect)]
-        spec.U[intersect] = 0.5 * deepcopy(spec_a.U + spec_b.U)[intersect]
+        spec.U[intersect] = (0.5 * (spec_a.U + spec_b.U) / (bin_edges[1:] - bin_edges[:-1]))[intersect]
         spec.V[np.logical_not(intersect)] = deepcopy(spec_a.V + spec_b.V)[np.logical_not(intersect)]
-        spec.V[intersect] = 0.5 * deepcopy(spec_a.V + spec_b.V)[intersect]
+        spec.V[intersect] = (0.5 * (spec_a.V + spec_b.V) / (bin_edges[1:] - bin_edges[:-1]))[intersect]
         # Quadratically sum uncertainties
         for i in range(4):
             spec.IQUV_cov[i][i] = deepcopy(spec_a.IQUV_cov[i][i] + spec_b.IQUV_cov[i][i])
@@ -755,13 +757,13 @@ class FOSspecpol(specpol):
         spec_a += deepcopy(spec_b)
         for name in ["PASS1", "PASS2", "PASS12", "PASS12corr"]:
             spec_a.subspec[name] += deepcopy(spec_b.subspec[name])
-            spec_a.subspec[name].hd["DATAMIN"], spec_a.subspec[name].hd["DATAMAX"] = spec_a.subspec[name].I.min(), spec_a.subspec[name].I.max()
-            spec_a.subspec[name].hd["EXPTIME"] += spec_b.subspec[name].hd["EXPTIME"]
-            spec_a.subspec[name].hd["ROOTNAME"] += "+" + spec_b.subspec[name].hd["ROOTNAME"]
+            # spec_a.subspec[name].hd["DATAMIN"], spec_a.subspec[name].hd["DATAMAX"] = spec_a.subspec[name].I.min(), spec_a.subspec[name].I.max()
+            # spec_a.subspec[name].hd["EXPTIME"] += spec_b.subspec[name].hd["EXPTIME"]
+            # spec_a.subspec[name].hd["ROOTNAME"] += "+" + spec_b.subspec[name].hd["ROOTNAME"]
 
-        spec_a.hd["DATAMIN"], spec_a.hd["DATAMAX"] = spec_a.I.min(), spec_a.I.max()
-        spec_a.hd["EXPTIME"] += spec_b.hd["EXPTIME"]
-        spec_a.hd["ROOTNAME"] += "+" + spec_b.hd["ROOTNAME"]
+        # spec_a.hd["DATAMIN"], spec_a.hd["DATAMAX"] = spec_a.I.min(), spec_a.I.max()
+        # spec_a.hd["EXPTIME"] += spec_b.hd["EXPTIME"]
+        # spec_a.hd["ROOTNAME"] += "+" + spec_b.hd["ROOTNAME"]
         return spec_a
 
     def __deepcopy__(self, memo):
