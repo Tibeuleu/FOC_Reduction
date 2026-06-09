@@ -418,16 +418,26 @@ class specpol(object):
         """
         if (self.bin_edges.shape == other.bin_edges.shape) and np.all(self.bin_edges == other.bin_edges):
             bin_edges = deepcopy(self.bin_edges)
+            intersect = np.zeros(bin_edges.shape[0] - 1).astype(bool)
         else:
             # If different binning, concatenate binnings
             if self.bin_edges[0] <= other.bin_edges[0]:
                 bin_edges = deepcopy(self.bin_edges)
             else:
                 bin_edges = deepcopy(other.bin_edges)
+            intersect = np.zeros(bin_edges.shape[0] - 1).astype(bool)
             if other.bin_edges[-1] > bin_edges[-1]:
                 bin_edges = np.concat((bin_edges, deepcopy(other.bin_edges[other.bin_edges > bin_edges[-1]])), axis=0)
+                intersect = np.logical_and(
+                    0.5 * (bin_edges[1:] + bin_edges[:-1]) > min(self.bin_edges[-1], other.bin_edges[-1]),
+                    0.5 * (bin_edges[1:] + bin_edges[:-1]) < max(self.bin_edges[0], other.bin_edges[0]),
+                )
             elif self.bin_edges[-1] > bin_edges[-1]:
                 bin_edges = np.concat((bin_edges, deepcopy(self.bin_edges[self.bin_edges > bin_edges[-1]])), axis=0)
+                intersect = np.logical_and(
+                    0.5 * (bin_edges[1:] + bin_edges[:-1]) > min(self.bin_edges[-1], other.bin_edges[-1]),
+                    0.5 * (bin_edges[1:] + bin_edges[:-1]) < max(self.bin_edges[0], other.bin_edges[0]),
+                )
         # Rebin spectra to be added to ensure same binning
         spec_a = specpol(specpol(self).bin(bin_edges=bin_edges))
         spec_b = specpol(specpol(other).bin(bin_edges=bin_edges))
@@ -473,10 +483,14 @@ class specpol(object):
                 spec.I_r_err[w] = np.sqrt(np.sum(np.concat([self.I_r_err[bin == w] ** 2 * wav**2, other.I_r_err[bino == w] ** 2 * wavo**2]))) / wavs / n
 
         # Sum stokes fluxes
-        spec.I = deepcopy(spec_a.I + spec_b.I)
-        spec.Q = deepcopy(spec_a.Q + spec_b.Q)
-        spec.U = deepcopy(spec_a.U + spec_b.U)
-        spec.V = deepcopy(spec_a.V + spec_b.V)
+        spec.I[np.logical_not(intersect)] = deepcopy(spec_a.I + spec_b.I)[np.logical_not(intersect)]
+        spec.I[intersect] = 0.5 * deepcopy(spec_a.I + spec_b.I)[intersect]
+        spec.Q[np.logical_not(intersect)] = deepcopy(spec_a.Q + spec_b.Q)[np.logical_not(intersect)]
+        spec.Q[intersect] = 0.5 * deepcopy(spec_a.Q + spec_b.Q)[intersect]
+        spec.U[np.logical_not(intersect)] = deepcopy(spec_a.U + spec_b.U)[np.logical_not(intersect)]
+        spec.U[intersect] = 0.5 * deepcopy(spec_a.U + spec_b.U)[intersect]
+        spec.V[np.logical_not(intersect)] = deepcopy(spec_a.V + spec_b.V)[np.logical_not(intersect)]
+        spec.V[intersect] = 0.5 * deepcopy(spec_a.V + spec_b.V)[intersect]
         # Quadratically sum uncertainties
         for i in range(4):
             spec.IQUV_cov[i][i] = deepcopy(spec_a.IQUV_cov[i][i] + spec_b.IQUV_cov[i][i])
@@ -520,15 +534,16 @@ class FOSspecpol(specpol):
         if isinstance(stokes, __class__):
             # Copy constructor
             self.rootname = deepcopy(stokes.rootname)
-            self.hd = deepcopy(stokes.hd)
-            self.bin_edges = deepcopy(stokes.bin_edges)
-            self.wav = deepcopy(stokes.wav)
-            self.wav_err = deepcopy(stokes.wav_err)
-            self.I = deepcopy(stokes.I)
-            self.Q = deepcopy(stokes.Q)
-            self.U = deepcopy(stokes.U)
-            self.V = deepcopy(stokes.V)
-            self.IQUV_cov = deepcopy(stokes.IQUV_cov)
+            super(__class__, self).__init__(stokes)
+            # self.hd = deepcopy(stokes.hd)
+            # self.bin_edges = deepcopy(stokes.bin_edges)
+            # self.wav = deepcopy(stokes.wav)
+            # self.wav_err = deepcopy(stokes.wav_err)
+            # self.I = deepcopy(stokes.I)
+            # self.Q = deepcopy(stokes.Q)
+            # self.U = deepcopy(stokes.U)
+            # self.V = deepcopy(stokes.V)
+            # self.IQUV_cov = deepcopy(stokes.IQUV_cov)
             self.P_fos = deepcopy(stokes.P_fos)
             self.P_fos_err = deepcopy(stokes.P_fos_err)
             self.PC_fos = deepcopy(stokes.PC_fos)
@@ -550,18 +565,22 @@ class FOSspecpol(specpol):
         Set all values to zero.
         """
         self.rootname = ""
-        self.hd = dict([])
+        # self.hd = dict([])
+        # self.hd["DENSITY"] = True
+        # self.hd["TARGNAME"] = "Undefined"
+        # self.hd["XUNIT"], self.hd["YUNIT"] = r"Wavelength [$\AA$]", r"{0:s}F$_\lambda$ [$10^{{{1:d}}}$ erg s$^{{-1}}$ cm$^{{-2}} \AA^{{-1}}$]"
+        # self.bin_edges = np.zeros((4, n + 1))
+        # self.wav = np.zeros((4, n))
+        # self.wav_err = np.zeros((4, n, 2))
+        # self.I = np.zeros((4, n))
+        # self.Q = np.zeros((4, n))
+        # self.U = np.zeros((4, n))
+        # self.V = np.zeros((4, n))
+        # self.IQUV_cov = np.zeros((4, 4, 4, n))
+        super(__class__, self).zero(n=n)
         self.hd["DENSITY"] = True
         self.hd["TARGNAME"] = "Undefined"
         self.hd["XUNIT"], self.hd["YUNIT"] = r"Wavelength [$\AA$]", r"{0:s}F$_\lambda$ [$10^{{{1:d}}}$ erg s$^{{-1}}$ cm$^{{-2}} \AA^{{-1}}$]"
-        self.bin_edges = np.zeros((4, n + 1))
-        self.wav = np.zeros((4, n))
-        self.wav_err = np.zeros((4, n, 2))
-        self.I = np.zeros((4, n))
-        self.Q = np.zeros((4, n))
-        self.U = np.zeros((4, n))
-        self.V = np.zeros((4, n))
-        self.IQUV_cov = np.zeros((4, 4, 4, n))
 
         self.subspec = {}
         for i, name in enumerate(["PASS1", "PASS2", "PASS12", "PASS12corr"]):
@@ -728,11 +747,12 @@ class FOSspecpol(specpol):
             bin_edges[:-1], bin_edges[-1] = spec_a.wav - spec_a.wav_err[:, 0], spec_a.wav[-1] + spec_a.wav_err[-1:1]
             spec_b = other.bin(bin_edges=bin_edges)
 
-        spec_a.I += deepcopy(spec_b.I)
-        spec_a.Q += deepcopy(spec_b.Q)
-        spec_a.U += deepcopy(spec_b.U)
-        spec_a.V += deepcopy(spec_b.V)
-        spec_a.IQUV_cov += deepcopy(spec_b.IQUV_cov)
+        # spec_a.I += deepcopy(spec_b.I)
+        # spec_a.Q += deepcopy(spec_b.Q)
+        # spec_a.U += deepcopy(spec_b.U)
+        # spec_a.V += deepcopy(spec_b.V)
+        # spec_a.IQUV_cov += deepcopy(spec_b.IQUV_cov)
+        spec_a += deepcopy(spec_b)
         for name in ["PASS1", "PASS2", "PASS12", "PASS12corr"]:
             spec_a.subspec[name] += deepcopy(spec_b.subspec[name])
             spec_a.subspec[name].hd["DATAMIN"], spec_a.subspec[name].hd["DATAMAX"] = spec_a.subspec[name].I.min(), spec_a.subspec[name].I.max()
