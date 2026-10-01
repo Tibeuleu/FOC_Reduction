@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io.fits import getheader, getdata, hdu
+from matplotlib.collections import LineCollection
 from os.path import join as join_path, exists as path_exists
 from os import system
 from copy import deepcopy
@@ -16,6 +17,59 @@ from copy import deepcopy
 #  _c6f.fits - flat-fielded sky count rate spectrum (corrected for paired pulses, detector background, flatfield structure, GIM effects)
 #  _c7f.fits - background count rate spectrum (scaled background subtracted from c4 products)
 #  _c8f.fits - flat-fielded and sky-subtracted object count rate spectrum
+
+
+def colored_line(x, y, c, ax=None, **lc_kwargs):
+    """
+    Plot a line with a color specified along the line by a third value.
+
+    It does this by creating a collection of line segments. Each line segment is
+    made up of two straight lines each connecting the current (x, y) point to the
+    midpoints of the lines connecting the current point with its two neighbors.
+    This creates a smooth line with no gaps between the line segments.
+
+    Parameters
+    ----------
+    x, y : array-like
+        The horizontal and vertical coordinates of the data points.
+    c : array-like
+        The color values, which should be the same size as x and y.
+    ax : matplotlib.axes.Axes, optional
+        The axes to plot on. If not provided, the current axes will be used.
+    **lc_kwargs
+        Any additional arguments to pass to matplotlib.collections.LineCollection
+        constructor. This should not include the array keyword argument because
+        that is set to the color argument. If provided, it will be overridden.
+
+    Returns
+    -------
+    matplotlib.collections.LineCollection
+        The generated line collection representing the colored line.
+    """
+    if "array" in lc_kwargs:
+        warnings.warn(
+            'The provided "array" keyword argument will be overridden',
+            UserWarning,
+            stacklevel=2,
+        )
+
+    xy = np.stack((x, y), axis=-1)
+    xy_mid = np.concat((xy[0, :][None, :], (xy[:-1, :] + xy[1:, :]) / 2, xy[-1, :][None, :]), axis=0)
+    segments = np.stack((xy_mid[:-1, :], xy, xy_mid[1:, :]), axis=-2)
+    # Note that
+    # segments[0, :, :] is [xy[0, :], xy[0, :], (xy[0, :] + xy[1, :]) / 2]
+    # segments[i, :, :] is [(xy[i - 1, :] + xy[i, :]) / 2, xy[i, :],
+    #     (xy[i, :] + xy[i + 1, :]) / 2] if i not in {0, len(x) - 1}
+    # segments[-1, :, :] is [(xy[-2, :] + xy[-1, :]) / 2, xy[-1, :], xy[-1, :]]
+
+    lc_kwargs["array"] = c
+    lc = LineCollection(segments, **lc_kwargs)
+
+    # Plot the line collection to the axes
+    ax = ax or plt.gca()
+    ax.add_collection(lc)
+
+    return lc
 
 
 def princ_angle(ang):
@@ -45,7 +99,7 @@ def princ_angle(ang):
         return A[0]
 
 
-class specpol(object):
+class specpol:
     """
     Class object for studying spectropolarimetry.
     """
@@ -76,12 +130,15 @@ class specpol(object):
             else:
                 self.zero()
 
+    def set_redshift(self, redshift):
+        self.hd["REDSHIFT"] = redshift
+
     @classmethod
     def zero(self, n=1):
         """
         Set all values to zero.
         """
-        self.hd = dict([])
+        self.hd = {}
         self.hd["TARGNAME"], self.hd["PROPOSID"], self.hd["ROOTNAME"], self.hd["APER_ID"] = "", 0, "", ""
         self.hd["DENSITY"] = False
         self.hd["XUNIT"], self.hd["YUNIT"] = r"Wavelength [m]", r"{0:s}F [$10^{{{1:d}}}$ count s$^{{-1}}$]"
@@ -97,7 +154,7 @@ class specpol(object):
     def rest(self, wav=None, z=None):
         if z is None and self.hd["TARGNAME"] == "":
             z = 0
-        elif z is None and "REDSHIFT" not in self.hd.keys():
+        elif z is None and "REDSHIFT" not in self.hd:
             from astroquery.ipac.ned import Ned
 
             z = Ned.query_object(self.hd["TARGNAME"])["Redshift"][0]
@@ -111,7 +168,7 @@ class specpol(object):
     def unrest(self, wav=None, z=None):
         if z is None and self.hd["TARGNAME"] == "":
             z = 0
-        elif z is None and "REDSHIFT" not in self.hd.keys():
+        elif z is None and "REDSHIFT" not in self.hd:
             from astroquery.ipac.ned import Ned
 
             z = Ned.query_object(self.hd["TARGNAME"])["Redshift"][0]
@@ -258,11 +315,13 @@ class specpol(object):
         out.hd["STEPWAV"] = np.max(bin_edges[1:] - bin_edges[:-1])
         return out
 
-    def bin_size(self, size):
+    def bin_size(self, size, bin_start=None):
         """
         Rebin spectra to selected bin size in Angstrom.
         """
-        bin_edges = np.arange(self.bin_edges.min(), self.bin_edges.max() + size, size, dtype=np.float32)
+        if bin_start is None:
+            bin_start = self.bin_edges.min()
+        bin_edges = np.arange(bin_start, self.bin_edges.max() + size, size, dtype=np.float32)
         return self.bin(bin_edges)
 
     def from_txt(self, filename, data_dir=""):
@@ -350,7 +409,7 @@ class specpol(object):
             )
             xmin, xmax = np.min(self.wav_r - self.wav_r_err[:, 0]), np.max(self.wav_r + self.wav_r_err[:, 1])
             ax1.errorbar(self.wav_r, self.I_r / yoff, xerr=self.wav_r_err.T, yerr=self.I_r_err / yoff, color="k", fmt=".", label="I")
-            ax1.plot(self.wav_r, self.I_r / yoff, "k--", alpha=0.5)
+            ax1.plot(self.wav_r, self.I_r / yoff, "--", color="gray")
         else:
             yoffset = np.floor(np.log10(self.I[self.I > 0.0].min())).astype(int)
             yoff = 10.0**yoffset
@@ -389,13 +448,13 @@ class specpol(object):
                 np.min(self.P[self.I > 0.0] - 1.5 * self.P_err[self.I > 0.0]) * 100.0,
                 np.max(self.P[self.I > 0.0] + 1.5 * self.P_err[self.I > 0.0]) * 100.0,
             )
-            ax2.set_ylim([pmin if pmin > 0.0 else 0.0, pmax if pmax < 100.0 else 100.0])
+            ax2.set_ylim([max(pmin, 0.0), min(pmax, 100.0)])
             ax2.set_ylabel(r"P [%]", color="b")
             ax2.tick_params(axis="y", color="b", labelcolor="b")
 
             ax22.errorbar(self.wav, self.PA, xerr=self.wav_err.T, yerr=self.PA_err, color="r", fmt=".", label="PA [°]")
             pamin, pamax = np.min(self.PA[self.I > 0.0] - 1.5 * self.PA_err[self.I > 0.0]), np.max(self.PA[self.I > 0.0] + 1.5 * self.PA_err[self.I > 0.0])
-            ax22.set_ylim([pamin if pamin > 0.0 else 0.0, pamax if pamax < 180.0 else 180.0])
+            ax22.set_ylim([max(pamin, 0.0), min(pamax, 180.0)])
             ax22.set_ylabel(r"PA [°]", color="r")
             ax22.tick_params(axis="y", color="r", labelcolor="r")
 
@@ -469,20 +528,25 @@ class specpol(object):
             # When both spectra intersect, compute intersection as the mean
             edges = np.concat((spec.wav_r - spec.wav_r_err[:, 0], [spec.wav_r[-1] + spec.wav_r_err[-1, 1]]))
             edges.sort()
-            bin, bino = np.digitize(self.wav_r, edges) - 1, np.digitize(other.wav_r, edges) - 1
+            binr, binro = np.digitize(self.wav_r, edges) - 1, np.digitize(other.wav_r, edges) - 1
             for w in np.arange(spec.wav_r.shape[0])[np.logical_and(spec.wav_r >= inter[0], spec.wav_r <= inter[1])]:
-                if self.hd["DENSITY"] and np.any(bin == w):
+                if self.hd["DENSITY"] and np.any(binr == w):
                     # If flux density, convert to flux before converting back to the new density
                     wav, wavo = (
-                        np.abs(self.wav_r_err[bin == w]).sum(axis=1) * (self.I_r[bin == w] > self.I_r_err[bin == w]),
-                        np.abs(other.wav_r_err[bino == w]).sum(axis=1) * (other.I_r[bino == w] > other.I_r_err[bino == w]),
+                        np.abs(self.wav_r_err[binr == w]).sum(axis=1) * (self.I_r[binr == w] > self.I_r_err[binr == w]),
+                        np.abs(other.wav_r_err[binro == w]).sum(axis=1) * (other.I_r[binro == w] > other.I_r_err[binro == w]),
                     )
                     wavs = np.abs(spec.wav_r_err[w]).sum()
                 else:
                     wav, wavo, wavs = 1.0, 1.0, 1.0
-                n = np.sum(self.I_r[bin == w] > self.I_r_err[bin == w]) + np.sum(other.I_r[bino == w] > other.I_r_err[bino == w])
-                spec.I_r[w] = np.sum(np.concat([self.I_r[bin == w] * wav, other.I_r[bino == w] * wavo])) / wavs / n
-                spec.I_r_err[w] = np.sqrt(np.sum(np.concat([self.I_r_err[bin == w] ** 2 * wav**2, other.I_r_err[bino == w] ** 2 * wavo**2]))) / wavs / n
+                n = np.sum(self.I_r[binr == w] > self.I_r_err[binr == w]) + np.sum(other.I_r[binro == w] > other.I_r_err[binro == w])
+                spec.I_r[w] = np.sum(np.concat([self.I_r[binr == w] * wav, other.I_r[binro == w] * wavo])) / wavs / n
+                spec.I_r_err[w] = np.sqrt(np.sum(np.concat([self.I_r_err[binr == w] ** 2 * wav**2, other.I_r_err[binro == w] ** 2 * wavo**2]))) / wavs / n
+            thesort = np.argsort(spec.wav_r)
+            spec.wav_r = spec.wav_r[thesort]
+            spec.wav_r_err = spec.wav_r_err[thesort]
+            spec.I_r = spec.I_r[thesort]
+            spec.I_r_err = spec.I_r_err[thesort]
 
         # Sum stokes fluxes
         spec.I[np.logical_not(intersect)] = deepcopy(spec_a.I + spec_b.I)[np.logical_not(intersect)]
@@ -726,15 +790,15 @@ class FOSspecpol(specpol):
             outfiles.append(join_path(plots_folder, savename + ".pdf"))
         return outfiles
 
-    def bin_size(self, size):
+    def bin_size(self, size, bin_start=None):
         """
         Rebin spectra to selected bin size in Angstrom.
         """
-        key = "{0:.2f}bin".format(size)
-        if key not in self.subspec.keys():
-            self.subspec[key] = dict([])
+        key = f"{size:.2f}bin"
+        if key not in self.subspec:
+            self.subspec[key] = {}
             for name in ["PASS1", "PASS2", "PASS12", "PASS12corr"]:
-                self.subspec[key][name] = self.subspec[name].bin_size(size)
+                self.subspec[key][name] = self.subspec[name].bin_size(size, bin_start=bin_start)
         return self.subspec[key]
 
     def __add__(self, other):
@@ -770,7 +834,7 @@ class FOSspecpol(specpol):
         spec = FOSspecpol(self.wav.shape[0])
         spec.__dict__.update(self.__dict__)
 
-        for key in self.subspec.keys():
+        for key in self.subspec:
             spec.subspec[key] = deepcopy(self.subspec[key])
 
         return spec
@@ -782,7 +846,7 @@ class FOSspecpol(specpol):
             del self.fig
 
 
-def main(infiles, bin_size=None, output_dir=None):
+def main(infiles, bin_size=None, bin_start=None, redshift=None, output_dir=None):
     """
     Produce (binned and summed) spectra for a list of given fits files.
     """
@@ -794,7 +858,7 @@ def main(infiles, bin_size=None, output_dir=None):
         for dir in obs_dir:
             # Create missing data/plot folder for tydiness
             if not path_exists(dir):
-                system("mkdir -p {0:s} {1:s}".format(dir, dir.replace("data", "plots")))
+                system(f"mkdir -p {dir} {dir.replace('data', 'plots')}")
     else:
         print("Must input files to process.")
         return 1
@@ -807,9 +871,9 @@ def main(infiles, bin_size=None, output_dir=None):
     except ValueError:
         plots_folder = output_dir
     if not path_exists(plots_folder):
-        system("mkdir -p {0:s} ".format(plots_folder))
+        system(f"mkdir -p {plots_folder:s} ")
 
-    aper = dict([])
+    aper = {}
     roots = np.unique([p[1].split("_")[0] for p in prod])
     # Iteration on each observation in infiles
     for rootname in roots:
@@ -819,30 +883,32 @@ def main(infiles, bin_size=None, output_dir=None):
             spec = FOSspecpol(rootname, prod[np.array([p[1].split("_")[0] == rootname for p in prod])][0, 0])
         else:
             spec = FOSspecpol(rootname, data_folder[0])
+        if redshift is not None:
+            spec.set_redshift(redshift)
         filename = "_".join([spec.hd["TARGNAME"], "FOS", str(spec.hd["PROPOSID"]), spec.rootname, spec.hd["APER_ID"]])
         if bin_size is not None:
-            key = "{0:.2f}bin".format(bin_size)
-            spec.bin_size(bin_size)
+            key = f"{bin_size:.2f}bin"
+            spec.bin_size(bin_size, bin_start=bin_start)
             # Only output binned spectra
             outfiles += spec.dump_txt("_".join([filename, key]), spec_list=spec.subspec[key], output_dir=output_dir)
             outfiles += spec.plot(savename="_".join([filename, key]), spec_list=spec.subspec[key], plots_folder=plots_folder)
 
             # Save corrected and combined pass for later summation, only sum on same aperture
-            if spec.hd["APER_ID"] in aper.keys():
+            if spec.hd["APER_ID"] in aper:
                 aper[str(spec.hd["APER_ID"])].append(specpol(spec.subspec[key]["PASS12corr"]))
             else:
                 aper[str(spec.hd["APER_ID"])] = [specpol(spec.subspec[key]["PASS12corr"])]
         else:
             outfiles += spec.dump_txt(filename, output_dir=output_dir)
             outfiles += spec.plot(savename=filename, plots_folder=plots_folder)
-            if spec.hd["APER_ID"] in aper.keys():
+            if spec.hd["APER_ID"] in aper:
                 aper[str(spec.hd["APER_ID"])].append(specpol(spec.subspec["PASS12corr"]))
             else:
                 aper[str(spec.hd["APER_ID"])] = [specpol(spec.subspec["PASS12corr"])]
     plt.close("all")
 
     # Sum spectra acquired through same aperture
-    for key in aper.keys():
+    for key in aper:
         rootnames = [s.hd["ROOTNAME"] for s in aper[key]]
         print(*rootnames)
         spec = np.sum(aper[key])
@@ -865,8 +931,14 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--files", metavar="path", required=False, nargs="*", help="the full or relative path to the data products", default=None)
     parser.add_argument("-b", "--bin", metavar="bin_size", required=False, help="The bin size to resample spectra", type=float, default=None)
     parser.add_argument(
+        "-s", "--start", metavar="bin_start", required=False, help="The position of the first bin of the spectra in Angstrom", type=float, default=None
+    )
+    parser.add_argument(
+        "-z", "--redshift", metavar="redshift", required=False, help="The redshift of the source for rest wavelength computation", type=float, default=None
+    )
+    parser.add_argument(
         "-o", "--output_dir", metavar="directory_path", required=False, help="output directory path for the data products", type=str, default=None
     )
     args = parser.parse_args()
-    exitcode = main(infiles=args.files, bin_size=args.bin, output_dir=args.output_dir)
+    exitcode = main(infiles=args.files, bin_size=args.bin, bin_start=args.start, redshift=args.redshift, output_dir=args.output_dir)
     print("Written to: ", exitcode)
